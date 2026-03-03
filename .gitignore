@@ -27,4 +27,5 @@ Thumbs.db
 *.log
 
 docs/*.md
-*.md
+plan*
+progress*
