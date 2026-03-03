@@ -7,8 +7,6 @@ import (
 	"net/http"
 )
 
-type ctxKey string
-
 const requestIDKey ctxKey = "request_id"
 
 func RequestID(headerName string) func(http.Handler) http.Handler {

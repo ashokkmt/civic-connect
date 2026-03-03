@@ -13,6 +13,8 @@ type Config struct {
 	MongoDatabase      string
 	RequestIDHeader    string
 	ShutdownTimeoutSec int
+	JWTSecret          string
+	JWTTTLMinutes      int
 }
 
 func Load() (Config, error) {
@@ -22,6 +24,8 @@ func Load() (Config, error) {
 		MongoDatabase:      getEnv("MONGODB_DATABASE", ""),
 		RequestIDHeader:    getEnv("REQUEST_ID_HEADER", "X-Request-Id"),
 		ShutdownTimeoutSec: getEnvInt("SHUTDOWN_TIMEOUT_SEC", 15),
+		JWTSecret:          getEnv("JWT_SECRET", ""),
+		JWTTTLMinutes:      getEnvInt("JWT_TTL_MINUTES", 60),
 	}
 
 	if strings.TrimSpace(cfg.MongoURI) == "" {
@@ -29,6 +33,9 @@ func Load() (Config, error) {
 	}
 	if strings.TrimSpace(cfg.MongoDatabase) == "" {
 		return Config{}, errors.New("MONGODB_DATABASE is required")
+	}
+	if strings.TrimSpace(cfg.JWTSecret) == "" {
+		return Config{}, errors.New("JWT_SECRET is required")
 	}
 
 	return cfg, nil

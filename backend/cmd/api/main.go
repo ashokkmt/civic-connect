@@ -11,7 +11,13 @@ import (
 
 	"civic/internal/config"
 	"civic/internal/https"
+	"civic/internal/https/handlers"
+	"civic/internal/https/middleware"
+	"civic/internal/repository"
+	"civic/internal/service"
 	"civic/internal/storage"
+	"civic/internal/util/jwt"
+
 	"github.com/joho/godotenv"
 )
 
@@ -33,7 +39,7 @@ func main() {
 		log.Fatalf("mongo connect error: %v", err)
 	}
 	log.Println("Mongo connected successfully")
-	
+
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
@@ -42,7 +48,20 @@ func main() {
 		}
 	}()
 
-	router := https.NewRouter(https.RouterConfig{RequestIDHeader: cfg.RequestIDHeader})
+	jwtManager, err := jwt.NewManager(cfg.JWTSecret, time.Duration(cfg.JWTTTLMinutes)*time.Minute)
+	if err != nil {
+		log.Fatalf("jwt error: %v", err)
+	}
+
+	userRepo := repository.NewMemoryUserRepository()
+	authService := service.NewAuthService(userRepo, jwtManager)
+	authHandler := handlers.AuthHandler{Auth: authService}
+
+	router := https.NewRouter(https.RouterConfig{
+		RequestIDHeader: cfg.RequestIDHeader,
+		AuthHandler:     authHandler,
+		AuthMiddleware:  middleware.Auth(jwtManager),
+	})
 
 	srv := &http.Server{
 		Addr:              ":" + cfg.HTTPPort,
