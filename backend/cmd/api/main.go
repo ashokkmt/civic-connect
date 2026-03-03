@@ -30,7 +30,7 @@ func main() {
 	}
 
 	ctx := context.Background()
-	client, _, err := storage.Connect(ctx, storage.MongoConfig{
+	client, db, err := storage.Connect(ctx, storage.MongoConfig{
 		URI:      cfg.MongoURI,
 		Database: cfg.MongoDatabase,
 		Timeout:  10 * time.Second,
@@ -57,10 +57,18 @@ func main() {
 	authService := service.NewAuthService(userRepo, jwtManager)
 	authHandler := handlers.AuthHandler{Auth: authService}
 
+	issueRepo := repository.NewMongoIssueRepository(db)
+	if err := issueRepo.EnsureIndexes(ctx); err != nil {
+		log.Fatalf("mongo index error: %v", err)
+	}
+	issueService := service.NewIssueService(issueRepo)
+	issueHandler := handlers.IssueHandler{Issues: issueService}
+
 	router := https.NewRouter(https.RouterConfig{
 		RequestIDHeader: cfg.RequestIDHeader,
 		AuthHandler:     authHandler,
 		AuthMiddleware:  middleware.Auth(jwtManager),
+		IssueHandler:    issueHandler,
 	})
 
 	srv := &http.Server{
