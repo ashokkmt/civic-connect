@@ -53,22 +53,38 @@ func main() {
 		log.Fatalf("jwt error: %v", err)
 	}
 
-	userRepo := repository.NewMemoryUserRepository()
+	userRepo := repository.NewMongoUserRepository(db)
+	if err := userRepo.EnsureIndexes(ctx); err != nil {
+		log.Fatalf("mongo user index error: %v", err)
+	}
 	authService := service.NewAuthService(userRepo, jwtManager)
-	authHandler := handlers.AuthHandler{Auth: authService}
+	authHandler := handlers.AuthHandler{Auth: authService, AdminRegistrationSecret: cfg.AdminRegistrationSecret}
 
 	issueRepo := repository.NewMongoIssueRepository(db)
 	if err := issueRepo.EnsureIndexes(ctx); err != nil {
 		log.Fatalf("mongo index error: %v", err)
 	}
+
+	deptRepo := repository.NewMongoDepartmentRepository(db)
+	if err := deptRepo.EnsureIndexes(ctx); err != nil {
+		log.Fatalf("mongo department index error: %v", err)
+	}
+	deptService := service.NewDepartmentService(deptRepo)
+	adminProvisioning := service.NewAdminProvisioningService(userRepo, deptRepo)
+	adminHandler := handlers.AdminHandler{Departments: deptService, Provision: adminProvisioning}
+
 	issueService := service.NewIssueService(issueRepo)
 	issueHandler := handlers.IssueHandler{Issues: issueService}
+	moderationService := service.NewModerationService(issueRepo)
+	moderationHandler := handlers.ModerationHandler{Moderation: moderationService}
 
 	router := https.NewRouter(https.RouterConfig{
 		RequestIDHeader: cfg.RequestIDHeader,
 		AuthHandler:     authHandler,
 		AuthMiddleware:  middleware.Auth(jwtManager),
 		IssueHandler:    issueHandler,
+		Moderation:      moderationHandler,
+		AdminHandler:    adminHandler,
 	})
 
 	srv := &http.Server{

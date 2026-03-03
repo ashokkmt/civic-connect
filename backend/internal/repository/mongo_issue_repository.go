@@ -127,6 +127,128 @@ func (r *MongoIssueRepository) ListPublicNearby(ctx context.Context, location do
 	return out, nil
 }
 
+func (r *MongoIssueRepository) ListCitizenNearby(ctx context.Context, location domain.GeoPoint, radiusMeters int64, userID string, publicStatuses []domain.IssueStatus, limit int64) ([]*domain.Issue, error) {
+	filter := bson.M{
+		"location": bson.M{
+			"$nearSphere": bson.M{
+				"$geometry":    bson.M{"type": "Point", "coordinates": location.Coordinates},
+				"$maxDistance": radiusMeters,
+			},
+		},
+		"isMerged": bson.M{"$ne": true},
+		"$or": []bson.M{
+			{
+				"status": bson.M{"$in": publicStatuses},
+			},
+			{
+				"status":          domain.StatusPendingApproval,
+				"createdByUserId": userID,
+			},
+		},
+	}
+
+	opts := options.Find().SetLimit(limit).SetSort(bson.D{{Key: "createdAt", Value: -1}})
+	cur, err := r.col.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	var out []*domain.Issue
+	for cur.Next(ctx) {
+		var issue domain.Issue
+		if err := cur.Decode(&issue); err != nil {
+			return nil, err
+		}
+		out = append(out, &issue)
+	}
+	if err := cur.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (r *MongoIssueRepository) ListPending(ctx context.Context, limit int64) ([]*domain.Issue, error) {
+	filter := bson.M{
+		"status":   domain.StatusPendingApproval,
+		"isMerged": bson.M{"$ne": true},
+	}
+	opts := options.Find().SetLimit(limit).SetSort(bson.D{{Key: "createdAt", Value: -1}})
+	cur, err := r.col.Find(ctx, filter, opts)
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	var out []*domain.Issue
+	for cur.Next(ctx) {
+		var issue domain.Issue
+		if err := cur.Decode(&issue); err != nil {
+			return nil, err
+		}
+		out = append(out, &issue)
+	}
+	if err := cur.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (r *MongoIssueRepository) ApproveIssue(ctx context.Context, id primitive.ObjectID, adminID, departmentID, severity string, reviewedAt time.Time) error {
+	filter := bson.M{
+		"_id":      id,
+		"status":   domain.StatusPendingApproval,
+		"isMerged": bson.M{"$ne": true},
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"status":                       domain.StatusApproved,
+			"statusUpdatedAt":              reviewedAt,
+			"departmentId":                 departmentID,
+			"severity":                     severity,
+			"moderation.reviewedByAdminId": adminID,
+			"moderation.reviewedAt":        reviewedAt,
+			"updatedAt":                    reviewedAt,
+		},
+	}
+
+	res, err := r.col.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	if res.ModifiedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *MongoIssueRepository) RejectIssue(ctx context.Context, id primitive.ObjectID, adminID, reason string, reviewedAt time.Time) error {
+	filter := bson.M{
+		"_id":      id,
+		"status":   domain.StatusPendingApproval,
+		"isMerged": bson.M{"$ne": true},
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"status":                       domain.StatusRejected,
+			"statusUpdatedAt":              reviewedAt,
+			"moderation.reviewedByAdminId": adminID,
+			"moderation.reviewedAt":        reviewedAt,
+			"moderation.rejectionReason":   reason,
+			"updatedAt":                    reviewedAt,
+		},
+	}
+
+	res, err := r.col.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	if res.ModifiedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *MongoIssueRepository) AddSupporter(ctx context.Context, id primitive.ObjectID, userID string, allowedStatuses []domain.IssueStatus) (bool, error) {
 	filter := bson.M{
 		"_id":              id,

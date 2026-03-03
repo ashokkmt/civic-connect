@@ -8,24 +8,26 @@ import (
 )
 
 type Config struct {
-	HTTPPort           string
-	MongoURI           string
-	MongoDatabase      string
-	RequestIDHeader    string
-	ShutdownTimeoutSec int
-	JWTSecret          string
-	JWTTTLMinutes      int
+	HTTPPort                string
+	MongoURI                string
+	MongoDatabase           string
+	RequestIDHeader         string
+	ShutdownTimeoutSec      int
+	JWTSecret               string
+	JWTTTLMinutes           int
+	AdminRegistrationSecret string
 }
 
 func Load() (Config, error) {
 	cfg := Config{
-		HTTPPort:           getEnv("HTTP_PORT", "8080"),
-		MongoURI:           getEnv("MONGODB_URI", ""),
-		MongoDatabase:      getEnv("MONGODB_DATABASE", ""),
-		RequestIDHeader:    getEnv("REQUEST_ID_HEADER", "X-Request-Id"),
-		ShutdownTimeoutSec: getEnvInt("SHUTDOWN_TIMEOUT_SEC", 15),
-		JWTSecret:          getEnv("JWT_SECRET", ""),
-		JWTTTLMinutes:      getEnvInt("JWT_TTL_MINUTES", 60),
+		HTTPPort:                getEnv("HTTP_PORT", "8080"),
+		MongoURI:                getEnv("MONGODB_URI", ""),
+		MongoDatabase:           getEnv("MONGODB_DATABASE", ""),
+		RequestIDHeader:         getEnv("REQUEST_ID_HEADER", "X-Request-Id"),
+		ShutdownTimeoutSec:      getEnvInt("SHUTDOWN_TIMEOUT_SEC", 15),
+		JWTSecret:               getEnv("JWT_SECRET", ""),
+		JWTTTLMinutes:           getEnvInt("JWT_TTL_MINUTES", 60),
+		AdminRegistrationSecret: getEnv("ADMIN_REGISTRATION_SECRET", ""),
 	}
 
 	if strings.TrimSpace(cfg.MongoURI) == "" {

@@ -152,6 +152,29 @@ func (s *IssueService) GetPublicByID(ctx context.Context, id primitive.ObjectID)
 	return issue, nil
 }
 
+func (s *IssueService) GetCitizenByID(ctx context.Context, id primitive.ObjectID, userID string) (*domain.Issue, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errx.New("UNAUTHORIZED", "missing user", 401)
+	}
+	issue, err := s.issues.GetByID(ctx, id)
+	if err != nil {
+		return nil, errx.New("NOT_FOUND", "issue not found", 404)
+	}
+	if issue.IsMerged {
+		return nil, errx.New("NOT_FOUND", "issue not found", 404)
+	}
+	if issue.Status == domain.StatusPendingApproval {
+		if issue.CreatedByUserID != userID {
+			return nil, errx.New("NOT_FOUND", "issue not found", 404)
+		}
+		return issue, nil
+	}
+	if !isPublicStatus(issue.Status) {
+		return nil, errx.New("NOT_FOUND", "issue not found", 404)
+	}
+	return issue, nil
+}
+
 func (s *IssueService) ListPublicNearby(ctx context.Context, lat, lng float64, radiusMeters int64, limit int64) ([]*domain.Issue, error) {
 	if !geo.ValidateCoordinates(lat, lng) {
 		return nil, errx.New("INVALID_INPUT", "invalid coordinates", 400)
@@ -165,6 +188,28 @@ func (s *IssueService) ListPublicNearby(ctx context.Context, lat, lng float64, r
 
 	location := domain.GeoPoint{Type: "Point", Coordinates: [2]float64{lng, lat}}
 	issues, err := s.issues.ListPublicNearby(ctx, location, radiusMeters, publicStatuses(), limit)
+	if err != nil {
+		return nil, errx.New("INTERNAL_ERROR", "could not list issues", 500)
+	}
+	return issues, nil
+}
+
+func (s *IssueService) ListCitizenNearby(ctx context.Context, userID string, lat, lng float64, radiusMeters int64, limit int64) ([]*domain.Issue, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errx.New("UNAUTHORIZED", "missing user", 401)
+	}
+	if !geo.ValidateCoordinates(lat, lng) {
+		return nil, errx.New("INVALID_INPUT", "invalid coordinates", 400)
+	}
+	if radiusMeters <= 0 {
+		radiusMeters = publicDefaultRadiusMeters
+	}
+	if limit <= 0 {
+		limit = publicDefaultLimit
+	}
+
+	location := domain.GeoPoint{Type: "Point", Coordinates: [2]float64{lng, lat}}
+	issues, err := s.issues.ListCitizenNearby(ctx, location, radiusMeters, userID, publicStatuses(), limit)
 	if err != nil {
 		return nil, errx.New("INTERNAL_ERROR", "could not list issues", 500)
 	}

@@ -80,6 +80,17 @@ func (h IssueHandler) Create(w http.ResponseWriter, r *http.Request) {
 	response.WriteJSON(w, status, payload)
 }
 
+func (h IssueHandler) CitizenIssues(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		h.ListCitizen(w, r)
+	case http.MethodPost:
+		h.Create(w, r)
+	default:
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+	}
+}
+
 func (h IssueHandler) ListPublic(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
@@ -141,6 +152,79 @@ func (h IssueHandler) GetPublic(w http.ResponseWriter, r *http.Request) {
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue)})
 }
 
+func (h IssueHandler) ListCitizen(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+		return
+	}
+
+	lat, ok := parseFloatQuery(r, "lat")
+	if !ok {
+		response.WriteError(w, r, errx.New("INVALID_INPUT", "lat is required", http.StatusBadRequest))
+		return
+	}
+	lng, ok := parseFloatQuery(r, "lng")
+	if !ok {
+		response.WriteError(w, r, errx.New("INVALID_INPUT", "lng is required", http.StatusBadRequest))
+		return
+	}
+
+	radius := int64(0)
+	if val, ok := parseFloatQuery(r, "radiusMeters"); ok {
+		radius = int64(val)
+	}
+	limit := int64(0)
+	if val, ok := parseFloatQuery(r, "limit"); ok {
+		limit = int64(val)
+	}
+
+	issues, err := h.Issues.ListCitizenNearby(r.Context(), principal.UserID, lat, lng, radius, limit)
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	resp := make([]issuePublicDTO, 0, len(issues))
+	for _, issue := range issues {
+		resp = append(resp, toIssuePublicDTO(issue))
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"items": resp})
+}
+
+func (h IssueHandler) GetCitizen(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+		return
+	}
+
+	id, err := parseIDFromPath(r.URL.Path, "/api/v1/citizen/issues/")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	issue, err := h.Issues.GetCitizenByID(r.Context(), id, principal.UserID)
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue)})
+}
+
 func (h IssueHandler) Support(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
@@ -169,6 +253,14 @@ func (h IssueHandler) Support(w http.ResponseWriter, r *http.Request) {
 		"supporterAdded": added,
 		"issue":          toIssuePublicDTO(issue),
 	})
+}
+
+func (h IssueHandler) CitizenIssueRoutes(w http.ResponseWriter, r *http.Request) {
+	if strings.HasSuffix(r.URL.Path, "/support") {
+		h.Support(w, r)
+		return
+	}
+	h.GetCitizen(w, r)
 }
 
 type issuePublicDTO struct {
