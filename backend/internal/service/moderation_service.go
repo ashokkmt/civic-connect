@@ -87,3 +87,37 @@ func (s *ModerationService) Reject(ctx context.Context, id primitive.ObjectID, a
 	}
 	return issue, nil
 }
+
+func (s *ModerationService) Close(ctx context.Context, id primitive.ObjectID, adminID string) (*domain.Issue, error) {
+	if strings.TrimSpace(adminID) == "" {
+		return nil, errx.New("UNAUTHORIZED", "missing admin", 401)
+	}
+
+	issue, err := s.issues.GetByID(ctx, id)
+	if err != nil {
+		return nil, errx.New("NOT_FOUND", "issue not found", 404)
+	}
+	if issue.IsMerged {
+		return nil, errx.New("NOT_FOUND", "issue not found", 404)
+	}
+	if issue.Status != domain.StatusAwaitingAdminClose {
+		return nil, errx.New("INVALID_TRANSITION", "issue not awaiting admin closure", 409)
+	}
+
+	closedAt := time.Now()
+	if err := s.issues.CloseIssue(ctx, id, closedAt); err != nil {
+		if err == repository.ErrNotFound {
+			return nil, errx.New("NOT_FOUND", "issue not found", 404)
+		}
+		return nil, errx.New("INTERNAL_ERROR", "could not close issue", 500)
+	}
+
+	updated, err := s.issues.GetByID(ctx, id)
+	if err != nil {
+		return nil, errx.New("NOT_FOUND", "issue not found", 404)
+	}
+	if updated.Status != domain.StatusClosed {
+		return nil, errx.New("INVALID_TRANSITION", "issue not closed", 409)
+	}
+	return updated, nil
+}

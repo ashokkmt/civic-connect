@@ -77,14 +77,17 @@ func main() {
 	issueHandler := handlers.IssueHandler{Issues: issueService}
 	moderationService := service.NewModerationService(issueRepo)
 	moderationHandler := handlers.ModerationHandler{Moderation: moderationService}
+	authorityService := service.NewAuthorityService(issueRepo)
+	authorityHandler := handlers.AuthorityHandler{Authority: authorityService}
 
 	router := https.NewRouter(https.RouterConfig{
 		RequestIDHeader: cfg.RequestIDHeader,
 		AuthHandler:     authHandler,
-		AuthMiddleware:  middleware.Auth(jwtManager),
+		AuthMiddleware:  middleware.AuthHydrated(jwtManager, userRepo),
 		IssueHandler:    issueHandler,
 		Moderation:      moderationHandler,
 		AdminHandler:    adminHandler,
+		Authority:       authorityHandler,
 	})
 
 	srv := &http.Server{

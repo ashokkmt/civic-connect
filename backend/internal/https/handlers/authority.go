@@ -14,22 +14,23 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type ModerationHandler struct {
-	Moderation *service.ModerationService
+type AuthorityHandler struct {
+	Authority *service.AuthorityService
 }
 
-type approveIssueRequest struct {
-	DepartmentID string `json:"departmentId"`
-	Severity     string `json:"severity"`
+type resolveIssueRequest struct {
+	ResolutionNotes string `json:"resolutionNotes"`
 }
 
-type rejectIssueRequest struct {
-	Reason string `json:"reason"`
-}
-
-func (h ModerationHandler) ListPending(w http.ResponseWriter, r *http.Request) {
+func (h AuthorityHandler) List(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
 		return
 	}
 
@@ -43,7 +44,7 @@ func (h ModerationHandler) ListPending(w http.ResponseWriter, r *http.Request) {
 		limit = parsed
 	}
 
-	issues, err := h.Moderation.ListPending(r.Context(), limit)
+	issues, err := h.Authority.ListByDepartment(r.Context(), principal.DepartmentID, limit)
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
@@ -52,7 +53,7 @@ func (h ModerationHandler) ListPending(w http.ResponseWriter, r *http.Request) {
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"items": issues})
 }
 
-func (h ModerationHandler) Approve(w http.ResponseWriter, r *http.Request) {
+func (h AuthorityHandler) Assign(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
 		return
@@ -64,19 +65,73 @@ func (h ModerationHandler) Approve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := parseAdminIDFromPathWithSuffix(r.URL.Path, "/api/v1/admin/issues/", "/approve")
+	id, err := parseAuthorityIDFromPathWithSuffix(r.URL.Path, "/api/v1/authority/issues/", "/assign")
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
 	}
 
-	var req approveIssueRequest
+	issue, err := h.Authority.Assign(r.Context(), id, principal.UserID, principal.DepartmentID)
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": issue})
+}
+
+func (h AuthorityHandler) Start(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+		return
+	}
+
+	id, err := parseAuthorityIDFromPathWithSuffix(r.URL.Path, "/api/v1/authority/issues/", "/start")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	issue, err := h.Authority.Start(r.Context(), id, principal.UserID, principal.DepartmentID)
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": issue})
+}
+
+func (h AuthorityHandler) Resolve(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+		return
+	}
+
+	id, err := parseAuthorityIDFromPathWithSuffix(r.URL.Path, "/api/v1/authority/issues/", "/resolve")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	var req resolveIssueRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.WriteError(w, r, errx.New("INVALID_INPUT", "invalid request body", http.StatusBadRequest))
 		return
 	}
 
-	issue, err := h.Moderation.Approve(r.Context(), id, principal.UserID, req.DepartmentID, req.Severity)
+	issue, err := h.Authority.Resolve(r.Context(), id, principal.UserID, principal.DepartmentID, req.ResolutionNotes)
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
@@ -85,83 +140,23 @@ func (h ModerationHandler) Approve(w http.ResponseWriter, r *http.Request) {
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": issue})
 }
 
-func (h ModerationHandler) Reject(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+func (h AuthorityHandler) IssueRoutes(w http.ResponseWriter, r *http.Request) {
+	if strings.HasSuffix(r.URL.Path, "/assign") {
+		h.Assign(w, r)
 		return
 	}
-
-	principal, ok := middleware.GetPrincipal(r.Context())
-	if !ok {
-		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+	if strings.HasSuffix(r.URL.Path, "/start") {
+		h.Start(w, r)
 		return
 	}
-
-	id, err := parseAdminIDFromPathWithSuffix(r.URL.Path, "/api/v1/admin/issues/", "/reject")
-	if err != nil {
-		response.WriteError(w, r, err)
-		return
-	}
-
-	var req rejectIssueRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, r, errx.New("INVALID_INPUT", "invalid request body", http.StatusBadRequest))
-		return
-	}
-
-	issue, err := h.Moderation.Reject(r.Context(), id, principal.UserID, req.Reason)
-	if err != nil {
-		response.WriteError(w, r, err)
-		return
-	}
-
-	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": issue})
-}
-
-func (h ModerationHandler) Close(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
-		return
-	}
-
-	principal, ok := middleware.GetPrincipal(r.Context())
-	if !ok {
-		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
-		return
-	}
-
-	id, err := parseAdminIDFromPathWithSuffix(r.URL.Path, "/api/v1/admin/issues/", "/close")
-	if err != nil {
-		response.WriteError(w, r, err)
-		return
-	}
-
-	issue, err := h.Moderation.Close(r.Context(), id, principal.UserID)
-	if err != nil {
-		response.WriteError(w, r, err)
-		return
-	}
-
-	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": issue})
-}
-
-func (h ModerationHandler) IssueRoutes(w http.ResponseWriter, r *http.Request) {
-	if strings.HasSuffix(r.URL.Path, "/approve") {
-		h.Approve(w, r)
-		return
-	}
-	if strings.HasSuffix(r.URL.Path, "/reject") {
-		h.Reject(w, r)
-		return
-	}
-	if strings.HasSuffix(r.URL.Path, "/close") {
-		h.Close(w, r)
+	if strings.HasSuffix(r.URL.Path, "/resolve") {
+		h.Resolve(w, r)
 		return
 	}
 	response.WriteError(w, r, errx.New("NOT_FOUND", "not found", http.StatusNotFound))
 }
 
-func parseAdminIDFromPathWithSuffix(path, prefix, suffix string) (primitive.ObjectID, error) {
+func parseAuthorityIDFromPathWithSuffix(path, prefix, suffix string) (primitive.ObjectID, error) {
 	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
 		return primitive.NilObjectID, errx.New("NOT_FOUND", "not found", http.StatusNotFound)
 	}

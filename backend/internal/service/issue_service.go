@@ -216,6 +216,36 @@ func (s *IssueService) ListCitizenNearby(ctx context.Context, userID string, lat
 	return issues, nil
 }
 
+func (s *IssueService) ConfirmResolution(ctx context.Context, id primitive.ObjectID, userID string) (*domain.Issue, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errx.New("UNAUTHORIZED", "missing user", 401)
+	}
+
+	issue, err := s.issues.GetByID(ctx, id)
+	if err != nil {
+		return nil, errx.New("NOT_FOUND", "issue not found", 404)
+	}
+	if issue.IsMerged || issue.CreatedByUserID != userID {
+		return nil, errx.New("NOT_FOUND", "issue not found", 404)
+	}
+	if issue.Status != domain.StatusResolved {
+		return nil, errx.New("INVALID_TRANSITION", "issue not resolved", 409)
+	}
+
+	if err := s.issues.ConfirmResolution(ctx, id, userID, time.Now()); err != nil {
+		if err == repository.ErrNotFound {
+			return nil, errx.New("NOT_FOUND", "issue not found", 404)
+		}
+		return nil, errx.New("INTERNAL_ERROR", "could not confirm resolution", 500)
+	}
+
+	updated, err := s.issues.GetByID(ctx, id)
+	if err != nil {
+		return nil, errx.New("NOT_FOUND", "issue not found", 404)
+	}
+	return updated, nil
+}
+
 func activeClusteringStatuses() []domain.IssueStatus {
 	return []domain.IssueStatus{
 		domain.StatusPendingApproval,

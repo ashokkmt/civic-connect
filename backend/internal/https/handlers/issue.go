@@ -255,9 +255,40 @@ func (h IssueHandler) Support(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (h IssueHandler) ConfirmResolution(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+		return
+	}
+
+	id, err := parseIDFromPathWithSuffix(r.URL.Path, "/api/v1/citizen/issues/", "/confirm-resolution")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	issue, err := h.Issues.ConfirmResolution(r.Context(), id, principal.UserID)
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue)})
+}
+
 func (h IssueHandler) CitizenIssueRoutes(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(r.URL.Path, "/support") {
 		h.Support(w, r)
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, "/confirm-resolution") {
+		h.ConfirmResolution(w, r)
 		return
 	}
 	h.GetCitizen(w, r)
