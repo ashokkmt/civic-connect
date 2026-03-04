@@ -28,3 +28,32 @@ func RequireRole(roles ...string) func(http.Handler) http.Handler {
 		})
 	}
 }
+
+func RequireAuthoritySubRole(subRole string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			principal, ok := GetPrincipal(r.Context())
+			if !ok {
+				response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+				return
+			}
+			if principal.Role != "AUTHORITY" {
+				response.WriteError(w, r, errx.New("FORBIDDEN", "forbidden", http.StatusForbidden))
+				return
+			}
+			if principal.AuthoritySubRole != subRole {
+				response.WriteError(w, r, errx.New("FORBIDDEN", "forbidden", http.StatusForbidden))
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func RequireAuthorityHead() func(http.Handler) http.Handler {
+	return RequireAuthoritySubRole("HEAD")
+}
+
+func RequireAuthorityWorker() func(http.Handler) http.Handler {
+	return RequireAuthoritySubRole("WORKER")
+}

@@ -95,6 +95,27 @@ func (r *MongoUserRepository) Create(ctx context.Context, user *domain.User) err
 	return err
 }
 
+func (r *MongoUserRepository) BackfillAuthoritySubRole(ctx context.Context, subRole domain.AuthoritySubRole) (int64, error) {
+	filter := bson.M{
+		"role": string(domain.RoleAuthority),
+		"$or": []bson.M{
+			{"authoritySubRole": bson.M{"$exists": false}},
+			{"authoritySubRole": ""},
+		},
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"authoritySubRole": string(subRole),
+			"updatedAt":        time.Now().UTC(),
+		},
+	}
+	result, err := r.col.UpdateMany(ctx, filter, update)
+	if err != nil {
+		return 0, err
+	}
+	return result.ModifiedCount, nil
+}
+
 func normalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }

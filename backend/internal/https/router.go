@@ -18,6 +18,7 @@ type RouterConfig struct {
 	Moderation      handlers.ModerationHandler
 	AdminHandler    handlers.AdminHandler
 	Authority       handlers.AuthorityHandler
+	HeadHandler     handlers.HeadHandler
 }
 
 func NewRouter(cfg RouterConfig) http.Handler {
@@ -46,6 +47,9 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	authorityOnly := func(h http.Handler) http.Handler {
 		return cfg.AuthMiddleware(middleware.RequireRole(string(domain.RoleAuthority))(h))
 	}
+	headOnly := func(h http.Handler) http.Handler {
+		return cfg.AuthMiddleware(middleware.RequireAuthorityHead()(h))
+	}
 
 	mux.Handle("/api/v1/issues", http.HandlerFunc(cfg.IssueHandler.ListPublic))
 	mux.Handle("/api/v1/issues/", http.HandlerFunc(cfg.IssueHandler.GetPublic))
@@ -56,6 +60,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	mux.Handle("/api/v1/admin/issues/", adminOnly(http.HandlerFunc(cfg.Moderation.IssueRoutes)))
 	mux.Handle("/api/v1/admin/departments", adminOnly(http.HandlerFunc(cfg.AdminHandler.CreateDepartment)))
 	mux.Handle("/api/v1/admin/authorities", adminOnly(http.HandlerFunc(cfg.AdminHandler.RegisterAuthority)))
+	mux.Handle("/api/v1/head/authorities", headOnly(http.HandlerFunc(cfg.HeadHandler.RegisterWorker)))
 
 	mux.Handle("/api/v1/authority/issues", authorityOnly(http.HandlerFunc(cfg.Authority.List)))
 	mux.Handle("/api/v1/authority/issues/", authorityOnly(http.HandlerFunc(cfg.Authority.IssueRoutes)))

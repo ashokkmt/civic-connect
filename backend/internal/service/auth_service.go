@@ -64,7 +64,7 @@ func (s *AuthService) Register(ctx context.Context, email, password string, role
 		return nil, errx.New("INTERNAL_ERROR", "could not create user", 500)
 	}
 
-	token, err := s.jwt.Generate(user.ID, string(user.Role), user.DepartmentID)
+	token, err := s.jwt.Generate(user.ID, string(user.Role), user.DepartmentID, string(user.AuthoritySubRole))
 	if err != nil {
 		return nil, errx.New("INTERNAL_ERROR", "could not create token", 500)
 	}
@@ -90,7 +90,7 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (*AuthR
 		return nil, errx.New("INVALID_CREDENTIALS", "invalid credentials", 401)
 	}
 
-	token, err := s.jwt.Generate(user.ID, string(user.Role), user.DepartmentID)
+	token, err := s.jwt.Generate(user.ID, string(user.Role), user.DepartmentID, string(user.AuthoritySubRole))
 	if err != nil {
 		return nil, errx.New("INTERNAL_ERROR", "could not create token", 500)
 	}

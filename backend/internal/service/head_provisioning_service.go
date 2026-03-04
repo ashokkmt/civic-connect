@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"errors"
 	"strings"
 	"time"
@@ -16,16 +14,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type AdminProvisioningService struct {
+type HeadProvisioningService struct {
 	users repository.UserRepository
 	depts repository.DepartmentRepository
 }
 
-func NewAdminProvisioningService(users repository.UserRepository, depts repository.DepartmentRepository) *AdminProvisioningService {
-	return &AdminProvisioningService{users: users, depts: depts}
+func NewHeadProvisioningService(users repository.UserRepository, depts repository.DepartmentRepository) *HeadProvisioningService {
+	return &HeadProvisioningService{users: users, depts: depts}
 }
 
-func (s *AdminProvisioningService) RegisterAuthority(ctx context.Context, email, password, departmentID string) (*domain.User, error) {
+func (s *HeadProvisioningService) RegisterWorker(ctx context.Context, email, password, departmentID string) (*domain.User, error) {
 	email = strings.TrimSpace(strings.ToLower(email))
 	departmentID = strings.TrimSpace(departmentID)
 	if email == "" || password == "" {
@@ -68,7 +66,7 @@ func (s *AdminProvisioningService) RegisterAuthority(ctx context.Context, email,
 		Email:            email,
 		PasswordHash:     string(hash),
 		Role:             domain.RoleAuthority,
-		AuthoritySubRole: domain.AuthorityHead,
+		AuthoritySubRole: domain.AuthorityWorker,
 		DepartmentID:     departmentID,
 		Blocked:          false,
 		CreatedAt:        now,
@@ -85,10 +83,4 @@ func (s *AdminProvisioningService) RegisterAuthority(ctx context.Context, email,
 	copy := *user
 	copy.PasswordHash = ""
 	return &copy, nil
-}
-
-func newProvisionedID() string {
-	buf := make([]byte, 12)
-	_, _ = rand.Read(buf)
-	return hex.EncodeToString(buf)
 }

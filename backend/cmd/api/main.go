@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"civic/internal/config"
+	"civic/internal/domain"
 	"civic/internal/https"
 	"civic/internal/https/handlers"
 	"civic/internal/https/middleware"
@@ -57,6 +58,11 @@ func main() {
 	if err := userRepo.EnsureIndexes(ctx); err != nil {
 		log.Fatalf("mongo user index error: %v", err)
 	}
+	if modified, err := userRepo.BackfillAuthoritySubRole(ctx, domain.AuthorityWorker); err != nil {
+		log.Printf("authority sub-role backfill error: %v", err)
+	} else if modified > 0 {
+		log.Printf("authority sub-role backfill: updated %d users", modified)
+	}
 	authService := service.NewAuthService(userRepo, jwtManager)
 	authHandler := handlers.AuthHandler{Auth: authService, AdminRegistrationSecret: cfg.AdminRegistrationSecret}
 
@@ -72,6 +78,8 @@ func main() {
 	deptService := service.NewDepartmentService(deptRepo)
 	adminProvisioning := service.NewAdminProvisioningService(userRepo, deptRepo)
 	adminHandler := handlers.AdminHandler{Departments: deptService, Provision: adminProvisioning}
+	headProvisioning := service.NewHeadProvisioningService(userRepo, deptRepo)
+	headHandler := handlers.HeadHandler{Provision: headProvisioning}
 
 	issueService := service.NewIssueService(issueRepo)
 	issueHandler := handlers.IssueHandler{Issues: issueService}
@@ -88,6 +96,7 @@ func main() {
 		Moderation:      moderationHandler,
 		AdminHandler:    adminHandler,
 		Authority:       authorityHandler,
+		HeadHandler:     headHandler,
 	})
 
 	srv := &http.Server{

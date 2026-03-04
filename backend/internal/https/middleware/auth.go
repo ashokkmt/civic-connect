@@ -14,9 +14,10 @@ import (
 const principalKey ctxKey = "principal"
 
 type Principal struct {
-	UserID       string
-	Role         string
-	DepartmentID string
+	UserID           string
+	Role             string
+	AuthoritySubRole string
+	DepartmentID     string
 }
 
 func Auth(jwtManager *jwt.Manager) func(http.Handler) http.Handler {
@@ -40,7 +41,12 @@ func Auth(jwtManager *jwt.Manager) func(http.Handler) http.Handler {
 				return
 			}
 
-			p := Principal{UserID: claims.UserID, Role: claims.Role, DepartmentID: claims.DepartmentID}
+			p := Principal{
+				UserID:           claims.UserID,
+				Role:             claims.Role,
+				AuthoritySubRole: claims.AuthoritySubRole,
+				DepartmentID:     claims.DepartmentID,
+			}
 			ctx := WithPrincipal(r.Context(), p)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
@@ -81,7 +87,12 @@ func AuthHydrated(jwtManager *jwt.Manager, users repository.UserRepository) func
 				return
 			}
 
-			p := Principal{UserID: user.ID, Role: string(user.Role), DepartmentID: user.DepartmentID}
+			p := Principal{
+				UserID:           user.ID,
+				Role:             string(user.Role),
+				AuthoritySubRole: string(user.AuthoritySubRole),
+				DepartmentID:     user.DepartmentID,
+			}
 			ctx := WithPrincipal(r.Context(), p)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})

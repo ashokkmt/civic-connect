@@ -13,9 +13,10 @@ type Manager struct {
 }
 
 type Claims struct {
-	UserID       string `json:"uid"`
-	Role         string `json:"role"`
-	DepartmentID string `json:"dept,omitempty"`
+	UserID           string `json:"uid"`
+	Role             string `json:"role"`
+	AuthoritySubRole string `json:"authoritySubRole,omitempty"`
+	DepartmentID     string `json:"dept,omitempty"`
 	jwtlib.RegisteredClaims
 }
 
@@ -26,11 +27,12 @@ func NewManager(secret string, ttl time.Duration) (*Manager, error) {
 	return &Manager{secret: []byte(secret), ttl: ttl}, nil
 }
 
-func (m *Manager) Generate(userID, role, departmentID string) (string, error) {
+func (m *Manager) Generate(userID, role, departmentID, authoritySubRole string) (string, error) {
 	claims := Claims{
-		UserID:       userID,
-		Role:         role,
-		DepartmentID: departmentID,
+		UserID:           userID,
+		Role:             role,
+		AuthoritySubRole: authoritySubRole,
+		DepartmentID:     departmentID,
 		RegisteredClaims: jwtlib.RegisteredClaims{
 			ExpiresAt: jwtlib.NewNumericDate(time.Now().Add(m.ttl)),
 			IssuedAt:  jwtlib.NewNumericDate(time.Now()),
