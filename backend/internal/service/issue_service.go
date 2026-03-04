@@ -24,12 +24,13 @@ type IssueService struct {
 }
 
 type IssueCreateInput struct {
-	Title       string
-	Description string
-	ImageURLs   []string
-	Lat         float64
-	Lng         float64
-	UserID      string
+	Title        string
+	Description  string
+	ImageURLs    []string
+	Lat          float64
+	Lng          float64
+	UserID       string
+	DepartmentID string
 }
 
 type IssueCreateResult struct {
@@ -55,11 +56,15 @@ func (s *IssueService) CreateOrMergeIssue(ctx context.Context, input IssueCreate
 	if strings.TrimSpace(input.UserID) == "" {
 		return nil, errx.New("UNAUTHORIZED", "missing user", 401)
 	}
+	departmentID := strings.TrimSpace(input.DepartmentID)
+	if departmentID == "" {
+		return nil, errx.New("INVALID_INPUT", "departmentId is required", 400)
+	}
 
 	location := domain.GeoPoint{Type: "Point", Coordinates: [2]float64{input.Lng, input.Lat}}
 	active := activeClusteringStatuses()
 
-	nearby, err := s.issues.FindNearbyActive(ctx, location, clusterRadiusMeters, active)
+	nearby, err := s.issues.FindNearbyActive(ctx, location, departmentID, clusterRadiusMeters, active)
 	if err == nil && nearby != nil {
 		added, err := s.issues.AddSupporter(ctx, nearby.ID, input.UserID, active)
 		if err != nil {
@@ -83,6 +88,7 @@ func (s *IssueService) CreateOrMergeIssue(ctx context.Context, input IssueCreate
 		ImageURLs:        input.ImageURLs,
 		CreatedByUserID:  input.UserID,
 		Location:         location,
+		DepartmentID:     departmentID,
 		Status:           domain.StatusPendingApproval,
 		StatusUpdatedAt:  now,
 		SupporterUserIDs: []string{input.UserID},
@@ -95,7 +101,7 @@ func (s *IssueService) CreateOrMergeIssue(ctx context.Context, input IssueCreate
 		return nil, errx.New("INTERNAL_ERROR", "could not create issue", 500)
 	}
 
-	nearbyAfter, err := s.issues.FindNearbyActive(ctx, location, clusterRadiusMeters, active)
+	nearbyAfter, err := s.issues.FindNearbyActive(ctx, location, departmentID, clusterRadiusMeters, active)
 	if err == nil && nearbyAfter != nil && nearbyAfter.ID != issue.ID {
 		added, err := s.issues.AddSupporter(ctx, nearbyAfter.ID, input.UserID, active)
 		if err != nil {

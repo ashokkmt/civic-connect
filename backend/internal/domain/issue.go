@@ -53,16 +53,16 @@ type Issue struct {
 }
 
 type ModerationInfo struct {
-	ReviewedByAdminID string     `bson:"reviewedByAdminId,omitempty" json:"reviewedByAdminId,omitempty"`
-	ReviewedAt        *time.Time `bson:"reviewedAt,omitempty" json:"reviewedAt,omitempty"`
-	RejectionReason   string     `bson:"rejectionReason,omitempty" json:"rejectionReason,omitempty"`
+	ReviewedByHeadID string     `bson:"reviewedByHeadId,omitempty" json:"reviewedByHeadId,omitempty"`
+	ReviewedAt       *time.Time `bson:"reviewedAt,omitempty" json:"reviewedAt,omitempty"`
+	RejectionReason  string     `bson:"rejectionReason,omitempty" json:"rejectionReason,omitempty"`
 }
 
 type AuthorityInfo struct {
-	AssignedByAdminID     string     `bson:"assignedByAdminId,omitempty" json:"assignedByAdminId,omitempty"`
-	ResolvedByAuthorityID string     `bson:"resolvedByAuthorityId,omitempty" json:"resolvedByAuthorityId,omitempty"`
-	ResolutionNotes       string     `bson:"resolutionNotes,omitempty" json:"resolutionNotes,omitempty"`
-	ResolvedAt            *time.Time `bson:"resolvedAt,omitempty" json:"resolvedAt,omitempty"`
+	AssignedToWorkerID string     `bson:"assignedToWorkerId,omitempty" json:"assignedToWorkerId,omitempty"`
+	StartedAt          *time.Time `bson:"startedAt,omitempty" json:"startedAt,omitempty"`
+	ResolutionNotes    string     `bson:"resolutionNotes,omitempty" json:"resolutionNotes,omitempty"`
+	ResolvedAt         *time.Time `bson:"resolvedAt,omitempty" json:"resolvedAt,omitempty"`
 }
 
 type ReporterConfirmation struct {

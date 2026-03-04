@@ -22,21 +22,24 @@ func NewAuthorityService(issues repository.IssueRepository) *AuthorityService {
 	return &AuthorityService{issues: issues}
 }
 
-func (s *AuthorityService) ListByDepartment(ctx context.Context, departmentID string, limit int64) ([]*domain.Issue, error) {
+func (s *AuthorityService) ListByDepartment(ctx context.Context, departmentID, authorityID string, limit int64) ([]*domain.Issue, error) {
 	departmentID = strings.TrimSpace(departmentID)
+	authorityID = strings.TrimSpace(authorityID)
 	if departmentID == "" {
 		return nil, errx.New("INVALID_INPUT", "departmentId is required", 400)
+	}
+	if authorityID == "" {
+		return nil, errx.New("UNAUTHORIZED", "missing authority", 401)
 	}
 	if limit <= 0 {
 		limit = authorityDefaultLimit
 	}
 
 	statuses := []domain.IssueStatus{
-		domain.StatusApproved,
 		domain.StatusAssigned,
 		domain.StatusInProgress,
 	}
-	issues, err := s.issues.ListAuthorityByDepartment(ctx, departmentID, statuses, limit)
+	issues, err := s.issues.ListAuthorityByDepartment(ctx, departmentID, authorityID, statuses, limit)
 	if err != nil {
 		return nil, errx.New("INTERNAL_ERROR", "could not list authority issues", 500)
 	}
@@ -44,37 +47,7 @@ func (s *AuthorityService) ListByDepartment(ctx context.Context, departmentID st
 }
 
 func (s *AuthorityService) Assign(ctx context.Context, id primitive.ObjectID, authorityID, departmentID string) (*domain.Issue, error) {
-	if strings.TrimSpace(authorityID) == "" {
-		return nil, errx.New("UNAUTHORIZED", "missing authority", 401)
-	}
-	departmentID = strings.TrimSpace(departmentID)
-	if departmentID == "" {
-		return nil, errx.New("INVALID_INPUT", "departmentId is required", 400)
-	}
-
-	issue, err := s.issues.GetByID(ctx, id)
-	if err != nil {
-		return nil, errx.New("NOT_FOUND", "issue not found", 404)
-	}
-	if issue.IsMerged || issue.DepartmentID != departmentID {
-		return nil, errx.New("NOT_FOUND", "issue not found", 404)
-	}
-	if issue.Status != domain.StatusApproved {
-		return nil, errx.New("INVALID_TRANSITION", "issue not in approved status", 409)
-	}
-
-	if err := s.issues.AssignIssue(ctx, id, departmentID, authorityID, time.Now()); err != nil {
-		if err == repository.ErrNotFound {
-			return nil, errx.New("NOT_FOUND", "issue not found", 404)
-		}
-		return nil, errx.New("INTERNAL_ERROR", "could not assign issue", 500)
-	}
-
-	updated, err := s.issues.GetByID(ctx, id)
-	if err != nil {
-		return nil, errx.New("NOT_FOUND", "issue not found", 404)
-	}
-	return updated, nil
+	return nil, errx.New("FORBIDDEN", "assignment occurs during head approval", 403)
 }
 
 func (s *AuthorityService) Start(ctx context.Context, id primitive.ObjectID, authorityID, departmentID string) (*domain.Issue, error) {
@@ -95,6 +68,9 @@ func (s *AuthorityService) Start(ctx context.Context, id primitive.ObjectID, aut
 	}
 	if issue.Status != domain.StatusAssigned {
 		return nil, errx.New("INVALID_TRANSITION", "issue not in assigned status", 409)
+	}
+	if issue.Authority.AssignedToWorkerID != authorityID {
+		return nil, errx.New("FORBIDDEN", "issue not assigned to authority", 403)
 	}
 
 	if err := s.issues.StartIssue(ctx, id, departmentID, authorityID, time.Now()); err != nil {
@@ -132,6 +108,9 @@ func (s *AuthorityService) Resolve(ctx context.Context, id primitive.ObjectID, a
 	}
 	if issue.Status != domain.StatusInProgress {
 		return nil, errx.New("INVALID_TRANSITION", "issue not in progress", 409)
+	}
+	if issue.Authority.AssignedToWorkerID != authorityID {
+		return nil, errx.New("FORBIDDEN", "issue not assigned to authority", 403)
 	}
 
 	if err := s.issues.ResolveIssue(ctx, id, departmentID, authorityID, notes, time.Now()); err != nil {

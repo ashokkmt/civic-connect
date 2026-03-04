@@ -44,7 +44,7 @@ func (r *MongoIssueRepository) EnsureIndexes(ctx context.Context) error {
 	return err
 }
 
-func (r *MongoIssueRepository) FindNearbyActive(ctx context.Context, location domain.GeoPoint, radiusMeters int64, statuses []domain.IssueStatus) (*domain.Issue, error) {
+func (r *MongoIssueRepository) FindNearbyActive(ctx context.Context, location domain.GeoPoint, departmentID string, radiusMeters int64, statuses []domain.IssueStatus) (*domain.Issue, error) {
 	filter := bson.M{
 		"location": bson.M{
 			"$nearSphere": bson.M{
@@ -54,6 +54,9 @@ func (r *MongoIssueRepository) FindNearbyActive(ctx context.Context, location do
 		},
 		"status":   bson.M{"$in": statuses},
 		"isMerged": bson.M{"$ne": true},
+	}
+	if departmentID != "" {
+		filter["departmentId"] = departmentID
 	}
 
 	var issue domain.Issue
@@ -168,11 +171,12 @@ func (r *MongoIssueRepository) ListCitizenNearby(ctx context.Context, location d
 	return out, nil
 }
 
-func (r *MongoIssueRepository) ListAuthorityByDepartment(ctx context.Context, departmentID string, statuses []domain.IssueStatus, limit int64) ([]*domain.Issue, error) {
+func (r *MongoIssueRepository) ListAuthorityByDepartment(ctx context.Context, departmentID, authorityID string, statuses []domain.IssueStatus, limit int64) ([]*domain.Issue, error) {
 	filter := bson.M{
-		"departmentId": departmentID,
-		"status":       bson.M{"$in": statuses},
-		"isMerged":     bson.M{"$ne": true},
+		"departmentId":                 departmentID,
+		"authority.assignedToWorkerId": authorityID,
+		"status":                       bson.M{"$in": statuses},
+		"isMerged":                     bson.M{"$ne": true},
 	}
 
 	opts := options.Find().SetLimit(limit).SetSort(bson.D{{Key: "priorityScore", Value: -1}, {Key: "createdAt", Value: -1}})
@@ -196,10 +200,11 @@ func (r *MongoIssueRepository) ListAuthorityByDepartment(ctx context.Context, de
 	return out, nil
 }
 
-func (r *MongoIssueRepository) ListPending(ctx context.Context, limit int64) ([]*domain.Issue, error) {
+func (r *MongoIssueRepository) ListPending(ctx context.Context, departmentID string, limit int64) ([]*domain.Issue, error) {
 	filter := bson.M{
-		"status":   domain.StatusPendingApproval,
-		"isMerged": bson.M{"$ne": true},
+		"status":       domain.StatusPendingApproval,
+		"departmentId": departmentID,
+		"isMerged":     bson.M{"$ne": true},
 	}
 	opts := options.Find().SetLimit(limit).SetSort(bson.D{{Key: "createdAt", Value: -1}})
 	cur, err := r.col.Find(ctx, filter, opts)
@@ -222,20 +227,22 @@ func (r *MongoIssueRepository) ListPending(ctx context.Context, limit int64) ([]
 	return out, nil
 }
 
-func (r *MongoIssueRepository) ApproveIssue(ctx context.Context, id primitive.ObjectID, adminID, departmentID, severity string, reviewedAt time.Time) error {
+func (r *MongoIssueRepository) ApproveIssue(ctx context.Context, id primitive.ObjectID, adminID, departmentID, severity, workerID string, reviewedAt time.Time) error {
 	filter := bson.M{
-		"_id":      id,
-		"status":   domain.StatusPendingApproval,
-		"isMerged": bson.M{"$ne": true},
+		"_id":          id,
+		"status":       domain.StatusPendingApproval,
+		"departmentId": departmentID,
+		"isMerged":     bson.M{"$ne": true},
 	}
 	update := bson.M{
 		"$set": bson.M{
-			"status":                       domain.StatusApproved,
+			"status":                       domain.StatusAssigned,
 			"statusUpdatedAt":              reviewedAt,
 			"departmentId":                 departmentID,
 			"severity":                     severity,
-			"moderation.reviewedByAdminId": adminID,
+			"moderation.reviewedByHeadId":  adminID,
 			"moderation.reviewedAt":        reviewedAt,
+			"authority.assignedToWorkerId": workerID,
 			"updatedAt":                    reviewedAt,
 		},
 	}
@@ -250,20 +257,21 @@ func (r *MongoIssueRepository) ApproveIssue(ctx context.Context, id primitive.Ob
 	return nil
 }
 
-func (r *MongoIssueRepository) RejectIssue(ctx context.Context, id primitive.ObjectID, adminID, reason string, reviewedAt time.Time) error {
+func (r *MongoIssueRepository) RejectIssue(ctx context.Context, id primitive.ObjectID, adminID, departmentID, reason string, reviewedAt time.Time) error {
 	filter := bson.M{
-		"_id":      id,
-		"status":   domain.StatusPendingApproval,
-		"isMerged": bson.M{"$ne": true},
+		"_id":          id,
+		"status":       domain.StatusPendingApproval,
+		"departmentId": departmentID,
+		"isMerged":     bson.M{"$ne": true},
 	}
 	update := bson.M{
 		"$set": bson.M{
-			"status":                       domain.StatusRejected,
-			"statusUpdatedAt":              reviewedAt,
-			"moderation.reviewedByAdminId": adminID,
-			"moderation.reviewedAt":        reviewedAt,
-			"moderation.rejectionReason":   reason,
-			"updatedAt":                    reviewedAt,
+			"status":                      domain.StatusRejected,
+			"statusUpdatedAt":             reviewedAt,
+			"moderation.reviewedByHeadId": adminID,
+			"moderation.reviewedAt":       reviewedAt,
+			"moderation.rejectionReason":  reason,
+			"updatedAt":                   reviewedAt,
 		},
 	}
 
@@ -286,10 +294,10 @@ func (r *MongoIssueRepository) AssignIssue(ctx context.Context, id primitive.Obj
 	}
 	update := bson.M{
 		"$set": bson.M{
-			"status":                      domain.StatusAssigned,
-			"statusUpdatedAt":             assignedAt,
-			"authority.assignedByAdminId": authorityID,
-			"updatedAt":                   assignedAt,
+			"status":                       domain.StatusAssigned,
+			"statusUpdatedAt":              assignedAt,
+			"authority.assignedToWorkerId": authorityID,
+			"updatedAt":                    assignedAt,
 		},
 	}
 
@@ -305,16 +313,18 @@ func (r *MongoIssueRepository) AssignIssue(ctx context.Context, id primitive.Obj
 
 func (r *MongoIssueRepository) StartIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID string, startedAt time.Time) error {
 	filter := bson.M{
-		"_id":          id,
-		"status":       domain.StatusAssigned,
-		"departmentId": departmentID,
-		"isMerged":     bson.M{"$ne": true},
+		"_id":                          id,
+		"status":                       domain.StatusAssigned,
+		"departmentId":                 departmentID,
+		"authority.assignedToWorkerId": authorityID,
+		"isMerged":                     bson.M{"$ne": true},
 	}
 	update := bson.M{
 		"$set": bson.M{
-			"status":          domain.StatusInProgress,
-			"statusUpdatedAt": startedAt,
-			"updatedAt":       startedAt,
+			"status":              domain.StatusInProgress,
+			"statusUpdatedAt":     startedAt,
+			"authority.startedAt": startedAt,
+			"updatedAt":           startedAt,
 		},
 	}
 
@@ -330,19 +340,19 @@ func (r *MongoIssueRepository) StartIssue(ctx context.Context, id primitive.Obje
 
 func (r *MongoIssueRepository) ResolveIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID, notes string, resolvedAt time.Time) error {
 	filter := bson.M{
-		"_id":          id,
-		"status":       domain.StatusInProgress,
-		"departmentId": departmentID,
-		"isMerged":     bson.M{"$ne": true},
+		"_id":                          id,
+		"status":                       domain.StatusInProgress,
+		"departmentId":                 departmentID,
+		"authority.assignedToWorkerId": authorityID,
+		"isMerged":                     bson.M{"$ne": true},
 	}
 	update := bson.M{
 		"$set": bson.M{
-			"status":                          domain.StatusResolved,
-			"statusUpdatedAt":                 resolvedAt,
-			"authority.resolvedByAuthorityId": authorityID,
-			"authority.resolutionNotes":       notes,
-			"authority.resolvedAt":            resolvedAt,
-			"updatedAt":                       resolvedAt,
+			"status":                    domain.StatusResolved,
+			"statusUpdatedAt":           resolvedAt,
+			"authority.resolutionNotes": notes,
+			"authority.resolvedAt":      resolvedAt,
+			"updatedAt":                 resolvedAt,
 		},
 	}
 
@@ -383,11 +393,12 @@ func (r *MongoIssueRepository) ConfirmResolution(ctx context.Context, id primiti
 	return nil
 }
 
-func (r *MongoIssueRepository) CloseIssue(ctx context.Context, id primitive.ObjectID, closedAt time.Time) error {
+func (r *MongoIssueRepository) CloseIssue(ctx context.Context, id primitive.ObjectID, departmentID string, closedAt time.Time) error {
 	filter := bson.M{
-		"_id":      id,
-		"status":   domain.StatusAwaitingHeadClose,
-		"isMerged": bson.M{"$ne": true},
+		"_id":          id,
+		"status":       domain.StatusAwaitingHeadClose,
+		"departmentId": departmentID,
+		"isMerged":     bson.M{"$ne": true},
 	}
 	update := bson.M{
 		"$set": bson.M{

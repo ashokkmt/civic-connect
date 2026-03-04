@@ -21,10 +21,11 @@ type IssueHandler struct {
 }
 
 type createIssueRequest struct {
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	ImageURLs   []string `json:"imageUrls"`
-	Location    struct {
+	Title        string   `json:"title"`
+	Description  string   `json:"description"`
+	ImageURLs    []string `json:"imageUrls"`
+	DepartmentID string   `json:"departmentId"`
+	Location     struct {
 		Lat float64 `json:"lat"`
 		Lng float64 `json:"lng"`
 	} `json:"location"`
@@ -49,12 +50,13 @@ func (h IssueHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := h.Issues.CreateOrMergeIssue(r.Context(), service.IssueCreateInput{
-		Title:       req.Title,
-		Description: req.Description,
-		ImageURLs:   req.ImageURLs,
-		Lat:         req.Location.Lat,
-		Lng:         req.Location.Lng,
-		UserID:      principal.UserID,
+		Title:        req.Title,
+		Description:  req.Description,
+		ImageURLs:    req.ImageURLs,
+		Lat:          req.Location.Lat,
+		Lng:          req.Location.Lng,
+		UserID:       principal.UserID,
+		DepartmentID: req.DepartmentID,
 	})
 	if err != nil {
 		response.WriteError(w, r, err)
@@ -302,7 +304,7 @@ type issuePublicDTO struct {
 	Location       domain.GeoPoint    `json:"location"`
 	Status         domain.IssueStatus `json:"status"`
 	SupporterCount int                `json:"supporterCount"`
-	DepartmentID   string             `json:"departmentId,omitempty"`
+	DepartmentID   string             `json:"departmentId"`
 	CreatedAt      string             `json:"createdAt"`
 	UpdatedAt      string             `json:"updatedAt"`
 }

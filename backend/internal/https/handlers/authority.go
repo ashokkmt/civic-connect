@@ -44,7 +44,7 @@ func (h AuthorityHandler) List(w http.ResponseWriter, r *http.Request) {
 		limit = parsed
 	}
 
-	issues, err := h.Authority.ListByDepartment(r.Context(), principal.DepartmentID, limit)
+	issues, err := h.Authority.ListByDepartment(r.Context(), principal.DepartmentID, principal.UserID, limit)
 	if err != nil {
 		response.WriteError(w, r, err)
 		return

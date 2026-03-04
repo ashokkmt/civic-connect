@@ -19,8 +19,8 @@ type ModerationHandler struct {
 }
 
 type approveIssueRequest struct {
-	DepartmentID string `json:"departmentId"`
-	Severity     string `json:"severity"`
+	Severity string `json:"severity"`
+	WorkerID string `json:"workerId"`
 }
 
 type rejectIssueRequest struct {
@@ -43,13 +43,24 @@ func (h ModerationHandler) ListPending(w http.ResponseWriter, r *http.Request) {
 		limit = parsed
 	}
 
-	issues, err := h.Moderation.ListPending(r.Context(), limit)
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+		return
+	}
+
+	issues, err := h.Moderation.ListPending(r.Context(), principal.DepartmentID, limit)
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
 	}
 
-	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"items": issues})
+	resp := make([]issuePublicDTO, 0, len(issues))
+	for _, issue := range issues {
+		resp = append(resp, toIssuePublicDTO(issue))
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"items": resp})
 }
 
 func (h ModerationHandler) Approve(w http.ResponseWriter, r *http.Request) {
@@ -76,7 +87,7 @@ func (h ModerationHandler) Approve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	issue, err := h.Moderation.Approve(r.Context(), id, principal.UserID, req.DepartmentID, req.Severity)
+	issue, err := h.Moderation.Approve(r.Context(), id, principal.UserID, principal.DepartmentID, req.Severity, req.WorkerID)
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
@@ -109,7 +120,7 @@ func (h ModerationHandler) Reject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	issue, err := h.Moderation.Reject(r.Context(), id, principal.UserID, req.Reason)
+	issue, err := h.Moderation.Reject(r.Context(), id, principal.UserID, principal.DepartmentID, req.Reason)
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
@@ -136,7 +147,7 @@ func (h ModerationHandler) Close(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	issue, err := h.Moderation.Close(r.Context(), id, principal.UserID)
+	issue, err := h.Moderation.Close(r.Context(), id, principal.UserID, principal.DepartmentID)
 	if err != nil {
 		response.WriteError(w, r, err)
 		return

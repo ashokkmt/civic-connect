@@ -39,7 +39,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("mongo connect error: %v", err)
 	}
-	log.Println("Mongo connected successfully")
+	log.Printf("Mongo connected successfully (db=%s)", cfg.MongoDatabase)
 
 	defer func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -83,7 +83,7 @@ func main() {
 
 	issueService := service.NewIssueService(issueRepo)
 	issueHandler := handlers.IssueHandler{Issues: issueService}
-	moderationService := service.NewModerationService(issueRepo)
+	moderationService := service.NewModerationService(issueRepo, userRepo)
 	moderationHandler := handlers.ModerationHandler{Moderation: moderationService}
 	authorityService := service.NewAuthorityService(issueRepo)
 	authorityHandler := handlers.AuthorityHandler{Authority: authorityService}
