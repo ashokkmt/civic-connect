@@ -18,6 +18,7 @@ import (
 	"civic/internal/service"
 	"civic/internal/storage"
 	"civic/internal/util/jwt"
+	"civic/internal/util/priority"
 
 	"github.com/joho/godotenv"
 )
@@ -81,11 +82,18 @@ func main() {
 	headProvisioning := service.NewHeadProvisioningService(userRepo, deptRepo)
 	headHandler := handlers.HeadHandler{Provision: headProvisioning}
 
-	issueService := service.NewIssueService(issueRepo)
+	priorityWeights := priority.Weights{
+		Supporter: cfg.PrioritySupporterWeight,
+		DaysOpen:  cfg.PriorityDaysOpenWeight,
+		Severity:  cfg.PrioritySeverityWeight,
+		SlaBoost:  cfg.PrioritySlaWeight,
+	}
+
+	issueService := service.NewIssueService(issueRepo, priorityWeights)
 	issueHandler := handlers.IssueHandler{Issues: issueService}
-	moderationService := service.NewModerationService(issueRepo, userRepo)
+	moderationService := service.NewModerationService(issueRepo, userRepo, priorityWeights)
 	moderationHandler := handlers.ModerationHandler{Moderation: moderationService}
-	authorityService := service.NewAuthorityService(issueRepo)
+	authorityService := service.NewAuthorityService(issueRepo, priorityWeights)
 	authorityHandler := handlers.AuthorityHandler{Authority: authorityService}
 
 	router := https.NewRouter(https.RouterConfig{

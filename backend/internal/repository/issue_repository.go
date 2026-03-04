@@ -27,4 +27,5 @@ type IssueRepository interface {
 	CloseIssue(ctx context.Context, id primitive.ObjectID, departmentID string, closedAt time.Time) error
 	AddSupporter(ctx context.Context, id primitive.ObjectID, userID string, allowedStatuses []domain.IssueStatus) (bool, error)
 	MarkMerged(ctx context.Context, id, canonicalID primitive.ObjectID) error
+	UpdatePriorityScore(ctx context.Context, id primitive.ObjectID, score float64, updatedAt time.Time) error
 }

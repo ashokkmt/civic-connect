@@ -451,3 +451,26 @@ func (r *MongoIssueRepository) MarkMerged(ctx context.Context, id, canonicalID p
 	_, err := r.col.UpdateOne(ctx, bson.M{"_id": id}, update)
 	return err
 }
+
+func (r *MongoIssueRepository) UpdatePriorityScore(ctx context.Context, id primitive.ObjectID, score float64, updatedAt time.Time) error {
+	filter := bson.M{
+		"_id":      id,
+		"isMerged": bson.M{"$ne": true},
+	}
+	update := bson.M{
+		"$set": bson.M{
+			"priorityScore":     score,
+			"priorityUpdatedAt": updatedAt,
+			"updatedAt":         updatedAt,
+		},
+	}
+
+	res, err := r.col.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	if res.ModifiedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

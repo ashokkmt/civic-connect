@@ -16,6 +16,10 @@ type Config struct {
 	JWTSecret               string
 	JWTTTLMinutes           int
 	AdminRegistrationSecret string
+	PrioritySupporterWeight float64
+	PriorityDaysOpenWeight  float64
+	PrioritySeverityWeight  float64
+	PrioritySlaWeight       float64
 }
 
 func Load() (Config, error) {
@@ -28,6 +32,10 @@ func Load() (Config, error) {
 		JWTSecret:               getEnv("JWT_SECRET", ""),
 		JWTTTLMinutes:           getEnvInt("JWT_TTL_MINUTES", 60),
 		AdminRegistrationSecret: getEnv("ADMIN_REGISTRATION_SECRET", ""),
+		PrioritySupporterWeight: getEnvFloat("PRIORITY_SUPPORTER_WEIGHT", 1),
+		PriorityDaysOpenWeight:  getEnvFloat("PRIORITY_DAYS_OPEN_WEIGHT", 1),
+		PrioritySeverityWeight:  getEnvFloat("PRIORITY_SEVERITY_WEIGHT", 1),
+		PrioritySlaWeight:       getEnvFloat("PRIORITY_SLA_VIOLATION_WEIGHT", 1),
 	}
 
 	if strings.TrimSpace(cfg.MongoURI) == "" {
@@ -56,6 +64,18 @@ func getEnvInt(key string, fallback int) int {
 		return fallback
 	}
 	parsed, err := strconv.Atoi(val)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func getEnvFloat(key string, fallback float64) float64 {
+	val := os.Getenv(key)
+	if val == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseFloat(val, 64)
 	if err != nil {
 		return fallback
 	}

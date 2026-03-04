@@ -8,6 +8,7 @@ import (
 	"civic/internal/domain"
 	"civic/internal/errx"
 	"civic/internal/repository"
+	"civic/internal/util/priority"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -15,12 +16,13 @@ import (
 const pendingDefaultLimit int64 = 100
 
 type ModerationService struct {
-	issues repository.IssueRepository
-	users  repository.UserRepository
+	issues  repository.IssueRepository
+	users   repository.UserRepository
+	weights priority.Weights
 }
 
-func NewModerationService(issues repository.IssueRepository, users repository.UserRepository) *ModerationService {
-	return &ModerationService{issues: issues, users: users}
+func NewModerationService(issues repository.IssueRepository, users repository.UserRepository, weights priority.Weights) *ModerationService {
+	return &ModerationService{issues: issues, users: users, weights: weights}
 }
 
 func (s *ModerationService) ListPending(ctx context.Context, departmentID string, limit int64) ([]*domain.Issue, error) {
@@ -83,6 +85,13 @@ func (s *ModerationService) Approve(ctx context.Context, id primitive.ObjectID, 
 	}
 	if issue.Status != domain.StatusAssigned {
 		return nil, errx.New("INVALID_TRANSITION", "issue not assigned", 409)
+	}
+
+	now := time.Now()
+	priorityScore := priority.Score(issue, now, s.weights)
+	if err := s.issues.UpdatePriorityScore(ctx, issue.ID, priorityScore, now); err == nil {
+		issue.PriorityScore = priorityScore
+		issue.PriorityUpdatedAt = &now
 	}
 	return issue, nil
 }

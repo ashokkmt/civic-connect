@@ -9,6 +9,7 @@ import (
 	"civic/internal/errx"
 	"civic/internal/repository"
 	"civic/internal/util/geo"
+	"civic/internal/util/priority"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -20,7 +21,8 @@ const (
 )
 
 type IssueService struct {
-	issues repository.IssueRepository
+	issues          repository.IssueRepository
+	priorityWeights priority.Weights
 }
 
 type IssueCreateInput struct {
@@ -40,8 +42,8 @@ type IssueCreateResult struct {
 	SupporterAdded    bool
 }
 
-func NewIssueService(issues repository.IssueRepository) *IssueService {
-	return &IssueService{issues: issues}
+func NewIssueService(issues repository.IssueRepository, weights priority.Weights) *IssueService {
+	return &IssueService{issues: issues, priorityWeights: weights}
 }
 
 func (s *IssueService) CreateOrMergeIssue(ctx context.Context, input IssueCreateInput) (*IssueCreateResult, error) {
@@ -70,6 +72,11 @@ func (s *IssueService) CreateOrMergeIssue(ctx context.Context, input IssueCreate
 		if err != nil {
 			return nil, errx.New("INTERNAL_ERROR", "could not add supporter", 500)
 		}
+		updatedIssue, err := s.issues.GetByID(ctx, nearby.ID)
+		if err == nil {
+			_ = s.refreshPriority(ctx, updatedIssue, time.Now())
+			nearby = updatedIssue
+		}
 		return &IssueCreateResult{
 			Created:           false,
 			Issue:             nearby,
@@ -96,6 +103,8 @@ func (s *IssueService) CreateOrMergeIssue(ctx context.Context, input IssueCreate
 		CreatedAt:        now,
 		UpdatedAt:        now,
 	}
+	issue.PriorityScore = priority.Score(issue, now, s.priorityWeights)
+	issue.PriorityUpdatedAt = &now
 
 	if err := s.issues.Create(ctx, issue); err != nil {
 		return nil, errx.New("INTERNAL_ERROR", "could not create issue", 500)
@@ -106,6 +115,12 @@ func (s *IssueService) CreateOrMergeIssue(ctx context.Context, input IssueCreate
 		added, err := s.issues.AddSupporter(ctx, nearbyAfter.ID, input.UserID, active)
 		if err != nil {
 			return nil, errx.New("INTERNAL_ERROR", "could not merge supporter", 500)
+		}
+		updatedIssue, err := s.issues.GetByID(ctx, nearbyAfter.ID)
+		if err == nil {
+			if err := s.refreshPriority(ctx, updatedIssue, now); err == nil {
+				nearbyAfter = updatedIssue
+			}
 		}
 		_ = s.issues.MarkMerged(ctx, issue.ID, nearbyAfter.ID)
 		return &IssueCreateResult{
@@ -144,7 +159,21 @@ func (s *IssueService) SupportIssue(ctx context.Context, id primitive.ObjectID, 
 	if err != nil {
 		return nil, false, errx.New("NOT_FOUND", "issue not found", 404)
 	}
+	_ = s.refreshPriority(ctx, issue, time.Now())
 	return issue, true, nil
+}
+
+func (s *IssueService) refreshPriority(ctx context.Context, issue *domain.Issue, now time.Time) error {
+	if issue == nil {
+		return nil
+	}
+	newScore := priority.Score(issue, now, s.priorityWeights)
+	issue.PriorityScore = newScore
+	issue.PriorityUpdatedAt = &now
+	if err := s.issues.UpdatePriorityScore(ctx, issue.ID, newScore, now); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *IssueService) GetPublicByID(ctx context.Context, id primitive.ObjectID) (*domain.Issue, error) {

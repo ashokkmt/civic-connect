@@ -2,12 +2,15 @@ package service
 
 import (
 	"context"
+	"math"
+	"sort"
 	"strings"
 	"time"
 
 	"civic/internal/domain"
 	"civic/internal/errx"
 	"civic/internal/repository"
+	"civic/internal/util/priority"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -15,11 +18,12 @@ import (
 const authorityDefaultLimit int64 = 100
 
 type AuthorityService struct {
-	issues repository.IssueRepository
+	issues  repository.IssueRepository
+	weights priority.Weights
 }
 
-func NewAuthorityService(issues repository.IssueRepository) *AuthorityService {
-	return &AuthorityService{issues: issues}
+func NewAuthorityService(issues repository.IssueRepository, weights priority.Weights) *AuthorityService {
+	return &AuthorityService{issues: issues, weights: weights}
 }
 
 func (s *AuthorityService) ListByDepartment(ctx context.Context, departmentID, authorityID string, limit int64) ([]*domain.Issue, error) {
@@ -43,6 +47,30 @@ func (s *AuthorityService) ListByDepartment(ctx context.Context, departmentID, a
 	if err != nil {
 		return nil, errx.New("INTERNAL_ERROR", "could not list authority issues", 500)
 	}
+
+	now := time.Now()
+	for _, issue := range issues {
+		if issue == nil {
+			continue
+		}
+		newScore := priority.Score(issue, now, s.weights)
+		if math.Abs(issue.PriorityScore-newScore) > 0.0001 {
+			if err := s.issues.UpdatePriorityScore(ctx, issue.ID, newScore, now); err == nil {
+				issue.PriorityScore = newScore
+				issue.PriorityUpdatedAt = &now
+			}
+		}
+	}
+
+	sort.SliceStable(issues, func(i, j int) bool {
+		if issues[i] == nil || issues[j] == nil {
+			return issues[i] != nil
+		}
+		if issues[i].PriorityScore == issues[j].PriorityScore {
+			return issues[i].CreatedAt.After(issues[j].CreatedAt)
+		}
+		return issues[i].PriorityScore > issues[j].PriorityScore
+	})
 	return issues, nil
 }
 

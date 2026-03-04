@@ -44,6 +44,7 @@ type Issue struct {
 	Exif              ExifInfo             `bson:"exif,omitempty" json:"exif,omitempty"`
 	PriorityScore     float64              `bson:"priorityScore,omitempty" json:"priorityScore,omitempty"`
 	PriorityUpdatedAt *time.Time           `bson:"priorityUpdatedAt,omitempty" json:"priorityUpdatedAt,omitempty"`
+	SlaViolation      bool                 `bson:"slaViolation,omitempty" json:"slaViolation,omitempty"`
 	FlagsCount        int                  `bson:"flagsCount,omitempty" json:"flagsCount,omitempty"`
 	IsHidden          bool                 `bson:"isHidden,omitempty" json:"isHidden,omitempty"`
 	IsMerged          bool                 `bson:"isMerged,omitempty" json:"isMerged,omitempty"`
