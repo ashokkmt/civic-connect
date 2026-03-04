@@ -33,9 +33,9 @@ func (s *ModerationService) ListPending(ctx context.Context, limit int64) ([]*do
 	return issues, nil
 }
 
-func (s *ModerationService) Approve(ctx context.Context, id primitive.ObjectID, adminID, departmentID, severity string) (*domain.Issue, error) {
-	if strings.TrimSpace(adminID) == "" {
-		return nil, errx.New("UNAUTHORIZED", "missing admin", 401)
+func (s *ModerationService) Approve(ctx context.Context, id primitive.ObjectID, headID, departmentID, severity string) (*domain.Issue, error) {
+	if strings.TrimSpace(headID) == "" {
+		return nil, errx.New("UNAUTHORIZED", "missing authority head", 401)
 	}
 	if strings.TrimSpace(departmentID) == "" {
 		return nil, errx.New("INVALID_INPUT", "departmentId is required", 400)
@@ -45,7 +45,7 @@ func (s *ModerationService) Approve(ctx context.Context, id primitive.ObjectID, 
 	}
 
 	reviewedAt := time.Now()
-	if err := s.issues.ApproveIssue(ctx, id, adminID, departmentID, severity, reviewedAt); err != nil {
+	if err := s.issues.ApproveIssue(ctx, id, headID, departmentID, severity, reviewedAt); err != nil {
 		if err == repository.ErrNotFound {
 			return nil, errx.New("NOT_FOUND", "issue not found", 404)
 		}
@@ -62,16 +62,16 @@ func (s *ModerationService) Approve(ctx context.Context, id primitive.ObjectID, 
 	return issue, nil
 }
 
-func (s *ModerationService) Reject(ctx context.Context, id primitive.ObjectID, adminID, reason string) (*domain.Issue, error) {
-	if strings.TrimSpace(adminID) == "" {
-		return nil, errx.New("UNAUTHORIZED", "missing admin", 401)
+func (s *ModerationService) Reject(ctx context.Context, id primitive.ObjectID, headID, reason string) (*domain.Issue, error) {
+	if strings.TrimSpace(headID) == "" {
+		return nil, errx.New("UNAUTHORIZED", "missing authority head", 401)
 	}
 	if strings.TrimSpace(reason) == "" {
 		return nil, errx.New("INVALID_INPUT", "rejection reason is required", 400)
 	}
 
 	reviewedAt := time.Now()
-	if err := s.issues.RejectIssue(ctx, id, adminID, reason, reviewedAt); err != nil {
+	if err := s.issues.RejectIssue(ctx, id, headID, reason, reviewedAt); err != nil {
 		if err == repository.ErrNotFound {
 			return nil, errx.New("NOT_FOUND", "issue not found", 404)
 		}
@@ -88,9 +88,9 @@ func (s *ModerationService) Reject(ctx context.Context, id primitive.ObjectID, a
 	return issue, nil
 }
 
-func (s *ModerationService) Close(ctx context.Context, id primitive.ObjectID, adminID string) (*domain.Issue, error) {
-	if strings.TrimSpace(adminID) == "" {
-		return nil, errx.New("UNAUTHORIZED", "missing admin", 401)
+func (s *ModerationService) Close(ctx context.Context, id primitive.ObjectID, headID string) (*domain.Issue, error) {
+	if strings.TrimSpace(headID) == "" {
+		return nil, errx.New("UNAUTHORIZED", "missing authority head", 401)
 	}
 
 	issue, err := s.issues.GetByID(ctx, id)
@@ -100,8 +100,8 @@ func (s *ModerationService) Close(ctx context.Context, id primitive.ObjectID, ad
 	if issue.IsMerged {
 		return nil, errx.New("NOT_FOUND", "issue not found", 404)
 	}
-	if issue.Status != domain.StatusAwaitingAdminClose {
-		return nil, errx.New("INVALID_TRANSITION", "issue not awaiting admin closure", 409)
+	if issue.Status != domain.StatusAwaitingHeadClose {
+		return nil, errx.New("INVALID_TRANSITION", "issue not awaiting head closure", 409)
 	}
 
 	closedAt := time.Now()

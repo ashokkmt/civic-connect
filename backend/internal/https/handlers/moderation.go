@@ -64,7 +64,7 @@ func (h ModerationHandler) Approve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := parseAdminIDFromPathWithSuffix(r.URL.Path, "/api/v1/admin/issues/", "/approve")
+	id, err := parseHeadIDFromPathWithSuffix(r.URL.Path, "/api/v1/head/issues/", "/approve")
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
@@ -97,7 +97,7 @@ func (h ModerationHandler) Reject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := parseAdminIDFromPathWithSuffix(r.URL.Path, "/api/v1/admin/issues/", "/reject")
+	id, err := parseHeadIDFromPathWithSuffix(r.URL.Path, "/api/v1/head/issues/", "/reject")
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
@@ -130,7 +130,7 @@ func (h ModerationHandler) Close(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := parseAdminIDFromPathWithSuffix(r.URL.Path, "/api/v1/admin/issues/", "/close")
+	id, err := parseHeadIDFromPathWithSuffix(r.URL.Path, "/api/v1/head/issues/", "/close")
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
@@ -161,7 +161,7 @@ func (h ModerationHandler) IssueRoutes(w http.ResponseWriter, r *http.Request) {
 	response.WriteError(w, r, errx.New("NOT_FOUND", "not found", http.StatusNotFound))
 }
 
-func parseAdminIDFromPathWithSuffix(path, prefix, suffix string) (primitive.ObjectID, error) {
+func parseHeadIDFromPathWithSuffix(path, prefix, suffix string) (primitive.ObjectID, error) {
 	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
 		return primitive.NilObjectID, errx.New("NOT_FOUND", "not found", http.StatusNotFound)
 	}

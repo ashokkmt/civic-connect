@@ -365,7 +365,7 @@ func (r *MongoIssueRepository) ConfirmResolution(ctx context.Context, id primiti
 	}
 	update := bson.M{
 		"$set": bson.M{
-			"status":                                 domain.StatusAwaitingAdminClose,
+			"status":                                 domain.StatusAwaitingHeadClose,
 			"statusUpdatedAt":                        confirmedAt,
 			"reporterConfirmation.confirmedAt":       confirmedAt,
 			"reporterConfirmation.confirmedByUserId": reporterID,
@@ -386,7 +386,7 @@ func (r *MongoIssueRepository) ConfirmResolution(ctx context.Context, id primiti
 func (r *MongoIssueRepository) CloseIssue(ctx context.Context, id primitive.ObjectID, closedAt time.Time) error {
 	filter := bson.M{
 		"_id":      id,
-		"status":   domain.StatusAwaitingAdminClose,
+		"status":   domain.StatusAwaitingHeadClose,
 		"isMerged": bson.M{"$ne": true},
 	}
 	update := bson.M{

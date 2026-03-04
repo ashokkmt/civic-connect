@@ -9,14 +9,14 @@ import (
 type IssueStatus string
 
 const (
-	StatusPendingApproval    IssueStatus = "PENDING_APPROVAL"
-	StatusRejected           IssueStatus = "REJECTED"
-	StatusApproved           IssueStatus = "APPROVED"
-	StatusAssigned           IssueStatus = "ASSIGNED"
-	StatusInProgress         IssueStatus = "IN_PROGRESS"
-	StatusResolved           IssueStatus = "RESOLVED"
-	StatusAwaitingAdminClose IssueStatus = "AWAITING_ADMIN_CLOSURE"
-	StatusClosed             IssueStatus = "CLOSED"
+	StatusPendingApproval   IssueStatus = "PENDING_APPROVAL"
+	StatusRejected          IssueStatus = "REJECTED"
+	StatusApproved          IssueStatus = "APPROVED"
+	StatusAssigned          IssueStatus = "ASSIGNED"
+	StatusInProgress        IssueStatus = "IN_PROGRESS"
+	StatusResolved          IssueStatus = "RESOLVED"
+	StatusAwaitingHeadClose IssueStatus = "AWAITING_HEAD_CLOSURE"
+	StatusClosed            IssueStatus = "CLOSED"
 )
 
 type GeoPoint struct {

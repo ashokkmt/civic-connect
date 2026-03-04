@@ -270,7 +270,7 @@ func publicStatuses() []domain.IssueStatus {
 		domain.StatusAssigned,
 		domain.StatusInProgress,
 		domain.StatusResolved,
-		domain.StatusAwaitingAdminClose,
+		domain.StatusAwaitingHeadClose,
 		domain.StatusClosed,
 	}
 }

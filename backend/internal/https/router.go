@@ -56,8 +56,8 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	mux.Handle("/api/v1/citizen/issues", citizenOnly(http.HandlerFunc(cfg.IssueHandler.CitizenIssues)))
 	mux.Handle("/api/v1/citizen/issues/", citizenOnly(http.HandlerFunc(cfg.IssueHandler.CitizenIssueRoutes)))
 
-	mux.Handle("/api/v1/admin/issues/pending", adminOnly(http.HandlerFunc(cfg.Moderation.ListPending)))
-	mux.Handle("/api/v1/admin/issues/", adminOnly(http.HandlerFunc(cfg.Moderation.IssueRoutes)))
+	mux.Handle("/api/v1/head/issues/pending", headOnly(http.HandlerFunc(cfg.Moderation.ListPending)))
+	mux.Handle("/api/v1/head/issues/", headOnly(http.HandlerFunc(cfg.Moderation.IssueRoutes)))
 	mux.Handle("/api/v1/admin/departments", adminOnly(http.HandlerFunc(cfg.AdminHandler.CreateDepartment)))
 	mux.Handle("/api/v1/admin/authorities", adminOnly(http.HandlerFunc(cfg.AdminHandler.RegisterAuthority)))
 	mux.Handle("/api/v1/head/authorities", headOnly(http.HandlerFunc(cfg.HeadHandler.RegisterWorker)))
