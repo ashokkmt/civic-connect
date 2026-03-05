@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 type MeResponse = {
   success: boolean;
@@ -30,13 +31,32 @@ export default async function DashboardHome() {
   const session = await getSession();
   const user = session.data?.user;
 
+  if (session.success && user?.role) {
+    if (user.role === "CITIZEN") {
+      redirect("/dashboard/citizen");
+    }
+
+    if (user.role === "ADMIN") {
+      redirect("/dashboard/admin");
+    }
+
+    if (user.role === "AUTHORITY") {
+      if (user.authoritySubRole === "HEAD") {
+        redirect("/dashboard/head");
+      }
+      if (user.authoritySubRole === "WORKER") {
+        redirect("/dashboard/worker");
+      }
+    }
+  }
+
   return (
     <section className="space-y-6">
       <header className="space-y-2">
         <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Dashboard</p>
         <h1 className="text-3xl font-semibold text-zinc-900 dark:text-white">Welcome to CivicConnect</h1>
         <p className="max-w-2xl text-sm text-zinc-600 dark:text-zinc-300">
-          Phase 2 session wiring is active. Role routing will be added in Phase 3.
+          Role routing is active. If your role is recognized, you will be redirected automatically.
         </p>
       </header>
 
