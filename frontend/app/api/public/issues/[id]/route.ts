@@ -1,9 +1,10 @@
-import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-const TOKEN_COOKIE = "auth_token";
+type Params = {
+  params: Promise<{ id: string }>;
+};
 
-export async function GET() {
+export async function GET(_request: Request, { params }: Params) {
   const backendBase = process.env.BACKEND_BASE_URL;
 
   if (!backendBase) {
@@ -13,17 +14,9 @@ export async function GET() {
     );
   }
 
-  const token = (await cookies()).get(TOKEN_COOKIE)?.value;
-  if (!token) {
-    return NextResponse.json(
-      { success: false, error: { code: "UNAUTHORIZED", message: "Missing auth token" } },
-      { status: 401 }
-    );
-  }
-
-  const response = await fetch(`${backendBase}/api/v1/me`, {
+  const { id } = await params;
+  const response = await fetch(`${backendBase}/api/v1/issues/${id}`, {
     method: "GET",
-    headers: { Authorization: `Bearer ${token}` },
   });
 
   const payload = await response.json().catch(() => ({

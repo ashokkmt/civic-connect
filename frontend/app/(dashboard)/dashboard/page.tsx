@@ -8,7 +8,7 @@ type MeResponse = {
 };
 
 async function getSession() {
-  const headersList = headers();
+  const headersList = await headers();
   const host = headersList.get("host");
   const protocol = headersList.get("x-forwarded-proto") ?? "http";
 

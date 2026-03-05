@@ -1,5 +1,1 @@
-import { redirect } from "next/navigation";
-
-export default function Home() {
-  redirect("/issues");
-}
+export { default } from "./(public)/page";
