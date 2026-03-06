@@ -3,6 +3,8 @@ import { JetBrains_Mono, Manrope } from "next/font/google";
 import { LocationProvider } from "@/lib/location/context";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import "./globals.css";
+import { PublicNavbar } from "@/components/layout/PublicNavbar";
+import Footer from "@/components/layout/Footer";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -29,9 +31,13 @@ export default function RootLayout({
       <body
         className={`${manrope.variable} ${jetBrainsMono.variable} min-h-screen bg-[var(--background)] antialiased`}
       >
-        <ThemeProvider>
-          <LocationProvider>{children}</LocationProvider>
-        </ThemeProvider>
+        <LocationProvider>
+          <ThemeProvider>
+            <PublicNavbar />
+            {children}
+            <Footer />
+          </ThemeProvider>
+        </LocationProvider>
       </body>
     </html>
   );

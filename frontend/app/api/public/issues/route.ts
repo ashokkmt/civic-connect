@@ -27,14 +27,21 @@ export async function GET(request: Request) {
   if (radiusMeters) query.set("radiusMeters", radiusMeters);
   if (limit) query.set("limit", limit);
 
-  const response = await fetch(`${backendBase}/api/v1/issues?${query.toString()}`, {
-    method: "GET",
-  });
+  try {
+    const response = await fetch(`${backendBase}/api/v1/issues?${query.toString()}`, {
+      method: "GET",
+    });
 
-  const payload = await response.json().catch(() => ({
-    success: false,
-    error: { code: "INVALID_RESPONSE", message: "Backend returned invalid JSON" },
-  }));
+    const payload = await response.json().catch(() => ({
+      success: false,
+      error: { code: "INVALID_RESPONSE", message: "Backend returned invalid JSON" },
+    }));
 
-  return NextResponse.json(payload, { status: response.status || 500 });
+    return NextResponse.json(payload, { status: response.status || 500 });
+  } catch {
+    return NextResponse.json(
+      { success: false, error: { code: "BACKEND_UNAVAILABLE", message: "Backend is unreachable" } },
+      { status: 503 }
+    );
+  }
 }

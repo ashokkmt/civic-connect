@@ -26,6 +26,7 @@ type IssuesResponse = {
 };
 
 const DEFAULT_RADIUS = 2000;
+const DEFAULT_LIMIT = 100;
 
 export default function IssuesPage() {
   const { location } = useLocation();
@@ -100,14 +101,15 @@ export default function IssuesPage() {
       return;
     }
 
+    const controller = new AbortController();
     const load = async () => {
       setLoading(true);
       setError(null);
 
       try {
         const response = await fetch(
-          `/api/public/issues?lat=${location!.lat}&lng=${location!.lng}&radiusMeters=${DEFAULT_RADIUS}`,
-          { method: "GET" }
+          `/api/public/issues?lat=${location!.lat}&lng=${location!.lng}&radiusMeters=${DEFAULT_RADIUS}&limit=${DEFAULT_LIMIT}`,
+          { method: "GET", signal: controller.signal }
         );
         const payload = (await response.json()) as IssuesResponse;
         if (!response.ok || !payload.success) {
@@ -116,7 +118,10 @@ export default function IssuesPage() {
           return;
         }
         setIssues(payload.data?.items ?? []);
-      } catch {
+      } catch (err) {
+        if ((err as DOMException).name === "AbortError") {
+          return;
+        }
         setError("Unable to load issues");
       } finally {
         setLoading(false);
@@ -124,10 +129,11 @@ export default function IssuesPage() {
     };
 
     load();
+    return () => controller.abort();
   }, [locationReady, location?.lat, location?.lng]);
 
   return (
-    <section className="space-y-8">
+    <section className="space-y-8 py-10">
       <header className="space-y-2">
         <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Public issues</p>
         <h1 className="text-3xl font-semibold text-zinc-900 dark:text-white">Community issue explorer</h1>
@@ -285,5 +291,6 @@ export default function IssuesPage() {
         </section>
       </div>
     </section>
+
   );
 }

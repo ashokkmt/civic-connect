@@ -29,6 +29,8 @@ type IssuesResponse = {
 };
 
 const DEFAULT_RADIUS = 2000;
+const DEFAULT_LIMIT = 100;
+const MAX_RESOLVED_MARQUEE = 12;
 
 export default function HomePage() {
   const { location, setLocation, clearLocation } = useLocation();
@@ -58,14 +60,16 @@ export default function HomePage() {
     [issues]
   );
 
-  const loadIssues = async (lat: number, lng: number) => {
+  const marqueeIssues = useMemo(() => resolvedIssues.slice(0, MAX_RESOLVED_MARQUEE), [resolvedIssues]);
+
+  const loadIssues = async (lat: number, lng: number, signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
 
     try {
       const response = await fetch(
-        `/api/public/issues?lat=${lat}&lng=${lng}&radiusMeters=${DEFAULT_RADIUS}`,
-        { method: "GET" }
+        `/api/public/issues?lat=${lat}&lng=${lng}&radiusMeters=${DEFAULT_RADIUS}&limit=${DEFAULT_LIMIT}`,
+        { method: "GET", signal }
       );
       const payload = (await response.json()) as IssuesResponse;
       if (!response.ok || !payload.success) {
@@ -74,7 +78,10 @@ export default function HomePage() {
         return;
       }
       setIssues(payload.data?.items ?? []);
-    } catch {
+    } catch (err) {
+      if ((err as DOMException).name === "AbortError") {
+        return;
+      }
       setError("Unable to load issues");
     } finally {
       setLoading(false);
@@ -85,7 +92,9 @@ export default function HomePage() {
     if (!locationReady || !location) {
       return;
     }
-    loadIssues(location.lat, location.lng);
+    const controller = new AbortController();
+    loadIssues(location.lat, location.lng, controller.signal);
+    return () => controller.abort();
   }, [locationReady, location?.lat, location?.lng]);
 
   const requestGeolocation = () => {
@@ -122,9 +131,16 @@ export default function HomePage() {
   };
 
   return (
-    <div>
-      <section className="py-16 lg:py-24">
-        <div className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+    <div className="min-h-screen
+      bg-[radial-gradient(#d4d4d4_0.8px,transparent_0.8px)]
+      bg-[size:24px_24px]
+      bg-[#f8f8f6]
+      dark:bg-[radial-gradient(#2a2a2a_0.8px,transparent_0.8px)]
+      dark:bg-[size:24px_24px]
+      dark:bg-[#0f0f0f]">
+
+      <section className="py-10 lg:py-24 w-[60%] mx-auto h-[70vh]">
+        <div className="h-full flex flex-col justify-center items-center">
           <div className="space-y-4">
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">CivicConnect</p>
             <h1 className="text-4xl font-semibold text-zinc-900 dark:text-white sm:text-5xl">
@@ -149,7 +165,7 @@ export default function HomePage() {
               </Link>
             </div>
           </div>
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm">
+          {/* <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm w-[70%]">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Location</p>
@@ -201,12 +217,14 @@ export default function HomePage() {
                 </button>
               </form>
             </div>
-          </div>
+          </div> */}
         </div>
       </section>
 
-      <section className="py-16 lg:py-24">
-        <div className="space-y-6">
+      <section className="w-[85%] border border-[var(--border)] mx-auto"></section>
+
+      <section className="py-10 lg:py-24 w-[60%] mx-auto h-[75vh]">
+        <div className="h-full flex flex-col justify-center space-y-6">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Platform statistics</p>
             <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white">Live public system metrics</h2>
@@ -251,8 +269,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="py-16 lg:py-24">
-        <div className="space-y-5">
+      <section className="w-[85%] border border-[var(--border)] mx-auto"></section>
+
+      <section className="py-10 lg:py-24 w-[60%] mx-auto h-[75vh]">
+        <div className="h-full flex flex-col justify-center space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Resolved activity</p>
@@ -282,7 +302,7 @@ export default function HomePage() {
           ) : (
             <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-6">
               <div className="flex w-max gap-4 animate-marquee hover:[animation-play-state:paused]">
-                {[...resolvedIssues, ...resolvedIssues].map((issue, index) => {
+                {[...marqueeIssues, ...marqueeIssues].map((issue, index) => {
                   const resolvedAt = issue.resolvedAt ?? issue.closedAt ?? issue.createdAt;
                   return (
                     <div
@@ -308,8 +328,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="py-16 lg:py-24">
-        <div className="space-y-6">
+      <section className="w-[85%] border border-[var(--border)] mx-auto"></section>
+
+      <section className="py-10 lg:py-24 w-[60%] mx-auto h-[75vh]">
+        <div className="h-full flex flex-col justify-center space-y-6">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">How it works</p>
             <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white">Issue lifecycle</h2>
@@ -335,8 +357,10 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="py-16 lg:py-24">
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 md:p-8">
+      <section className="w-[85%] border border-[var(--border)] mx-auto"></section>
+
+      <section className="py-10 lg:py-24 w-[60%] mx-auto">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 md:p-8 h-[60%] flex flex-col justify-center">
           <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
             <div className="space-y-2">
               <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Get involved</p>
