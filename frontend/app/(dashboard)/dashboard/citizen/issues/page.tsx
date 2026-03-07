@@ -2,55 +2,35 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { IssueTable } from "@/components/issues/IssueTable";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
-import { IssueTable } from "@/components/issues/IssueTable";
 import { useLocation } from "@/lib/location/context";
 import { isValidLocation } from "@/lib/location/validation";
 
-type IssueRow = {
+type IssuePublic = {
   id: string;
   title: string;
   status: string;
   supporterCount?: number;
   createdAt?: string;
-  isReporter?: boolean;
-  isSupporter?: boolean;
 };
 
 type IssuesResponse = {
   success: boolean;
-  data?: { items?: IssueRow[] };
+  data?: { items?: IssuePublic[] };
   error?: { message?: string };
 };
 
 const DEFAULT_RADIUS = 2000;
 
-export default function CitizenDashboard() {
+export default function CitizenIssuesPage() {
   const { location } = useLocation();
-  const [issues, setIssues] = useState<IssueRow[]>([]);
+  const [issues, setIssues] = useState<IssuePublic[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const locationReady = useMemo(() => location && isValidLocation(location), [location]);
-  const flagsAvailable = useMemo(
-    () => issues.some((issue) => issue.isReporter || issue.isSupporter),
-    [issues]
-  );
-
-  const reportedIssues = useMemo(() => {
-    if (!flagsAvailable) {
-      return issues;
-    }
-    return issues.filter((issue) => issue.isReporter);
-  }, [issues, flagsAvailable]);
-
-  const supportedIssues = useMemo(() => {
-    if (!flagsAvailable) {
-      return issues;
-    }
-    return issues.filter((issue) => issue.isSupporter);
-  }, [issues, flagsAvailable]);
 
   useEffect(() => {
     if (!locationReady || !location) {
@@ -88,17 +68,16 @@ export default function CitizenDashboard() {
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="space-y-2">
           <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Citizen</p>
-          <h1 className="text-3xl font-semibold text-zinc-900 dark:text-white">Your reported activity</h1>
+          <h1 className="text-3xl font-semibold text-zinc-900 dark:text-white">My issues</h1>
           <p className="max-w-2xl text-sm text-zinc-600 dark:text-zinc-300">
-            Review issues you reported and ones you supported. Lists will separate automatically once backend flags are
-            available.
+            Track issues you have reported or supported near your saved location.
           </p>
         </div>
         <Link
           href="/dashboard/citizen/issues/create"
           className="rounded-full bg-zinc-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-900"
         >
-          Report an issue
+          Report new issue
         </Link>
       </header>
 
@@ -108,26 +87,11 @@ export default function CitizenDashboard() {
           description="Set your location on the public homepage to view citizen issues."
         />
       ) : loading ? (
-        <LoadingSkeleton label="Loading citizen issues" />
+        <LoadingSkeleton label="Loading your issues" />
       ) : error ? (
         <EmptyState title="Unable to load issues" description={error} />
       ) : (
-        <div className="space-y-8">
-          <div className="space-y-3">
-            <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">Reported issues</h2>
-            <IssueTable
-              issues={reportedIssues}
-              emptyMessage="No reported issues found for your location."
-            />
-          </div>
-          <div className="space-y-3">
-            <h2 className="text-xl font-semibold text-zinc-900 dark:text-white">Supported issues</h2>
-            <IssueTable
-              issues={supportedIssues}
-              emptyMessage="No supported issues found for your location."
-            />
-          </div>
-        </div>
+        <IssueTable issues={issues} emptyMessage="No issues found for your location." />
       )}
     </section>
   );

@@ -2,21 +2,67 @@
 
 import Link from "next/link";
 
-const navItems = [
-  { label: "Overview", href: "/dashboard" },
-  { label: "Citizen", href: "/dashboard/citizen" },
-  { label: "Head", href: "/dashboard/head" },
-  { label: "Worker", href: "/dashboard/worker" },
-  { label: "Admin", href: "/dashboard/admin" },
-];
+type NavItem = {
+  label: string;
+  href: string;
+};
 
 type DashboardSidebarProps = {
   className?: string;
   onClose?: () => void;
   showClose?: boolean;
+  role?: string;
+  authoritySubRole?: string;
 };
 
-export function DashboardSidebar({ className, onClose, showClose }: DashboardSidebarProps) {
+const navForRole = (role?: string, authoritySubRole?: string): NavItem[] => {
+  if (role === "CITIZEN") {
+    return [
+      { label: "Overview", href: "/dashboard/citizen" },
+      { label: "My Issues", href: "/dashboard/citizen/issues" },
+      { label: "Report Issue", href: "/dashboard/citizen/issues/create" },
+      { label: "Settings", href: "/dashboard/citizen/settings" },
+    ];
+  }
+
+  if (role === "AUTHORITY" && authoritySubRole === "HEAD") {
+    return [
+      { label: "Overview", href: "/dashboard/head" },
+      { label: "Pending Issues", href: "/dashboard/head/pending" },
+      { label: "Create Worker", href: "/dashboard/head/workers" },
+      { label: "Close Issue", href: "/dashboard/head/close" },
+      { label: "Settings", href: "/dashboard/head/settings" },
+    ];
+  }
+
+  if (role === "AUTHORITY" && authoritySubRole === "WORKER") {
+    return [
+      { label: "Overview", href: "/dashboard/worker" },
+      { label: "Assigned Issues", href: "/dashboard/worker/issues" },
+      { label: "Settings", href: "/dashboard/worker/settings" },
+    ];
+  }
+
+  if (role === "ADMIN") {
+    return [
+      { label: "Overview", href: "/dashboard/admin" },
+      { label: "Departments", href: "/dashboard/admin/departments" },
+      { label: "Authority Heads", href: "/dashboard/admin/authorities" },
+      { label: "Settings", href: "/dashboard/admin/settings" },
+    ];
+  }
+
+  return [{ label: "Overview", href: "/dashboard" }];
+};
+
+export function DashboardSidebar({
+  className,
+  onClose,
+  showClose,
+  role,
+  authoritySubRole,
+}: DashboardSidebarProps) {
+  const navItems = navForRole(role, authoritySubRole);
   return (
     <aside
       className={`flex h-screen w-64 flex-col border-r border-[var(--border)] bg-[var(--surface)] px-4 py-6 ${
@@ -57,8 +103,8 @@ export function DashboardSidebar({ className, onClose, showClose }: DashboardSid
       </nav>
 
       <div className="mt-auto rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 text-xs text-zinc-600 dark:text-zinc-300">
-        <p className="font-semibold text-zinc-800 dark:text-zinc-100">Status</p>
-        <p className="mt-2">Phase 1 setup in progress.</p>
+        <p className="font-semibold text-zinc-800 dark:text-zinc-100">Account</p>
+        <p className="mt-2">Manage settings and logout from your role workspace.</p>
       </div>
     </aside>
   );
