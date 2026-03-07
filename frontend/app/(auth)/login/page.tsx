@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 type AuthError = {
   message: string;
@@ -39,14 +40,16 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <header className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Welcome back</p>
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">Login</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">Access your CivicConnect dashboard.</p>
+    <div className="space-y-8">
+      <header className="space-y-3 text-center">
+        <span className="mx-auto inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.35em] text-zinc-500 dark:text-zinc-300">
+          Welcome Back
+        </span>
+        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">Sign in to CivicConnect</h1>
+        <p className="text-sm text-zinc-600 dark:text-zinc-300">Access your dashboard and track community issues.</p>
       </header>
 
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form onSubmit={onSubmit} className="space-y-5">
         <div className="space-y-2">
           <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Email
@@ -56,20 +59,26 @@ export default function LoginPage() {
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-zinc-400 dark:text-white"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-zinc-400 dark:text-white"
             placeholder="you@example.com"
           />
         </div>
         <div className="space-y-2">
-          <label className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Password
-          </label>
+          <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            <span>Password</span>
+            <Link
+              href="/forgot-password"
+              className="text-[11px] font-semibold text-emerald-600 transition hover:text-emerald-500 dark:text-emerald-300"
+            >
+              Forgot password?
+            </Link>
+          </div>
           <input
             type="password"
             required
             value={password}
             onChange={(event) => setPassword(event.target.value)}
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-zinc-400 dark:text-white"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-sm text-zinc-900 outline-none transition focus:border-zinc-400 dark:text-white"
             placeholder="••••••••"
           />
         </div>
@@ -83,10 +92,16 @@ export default function LoginPage() {
         <button
           type="submit"
           disabled={loading}
-          className="flex w-full items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-white dark:text-zinc-900"
+          className="flex w-full items-center justify-center rounded-full bg-zinc-900 px-4 py-3 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:-translate-y-0.5 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-white dark:text-zinc-900"
         >
           {loading ? "Signing in..." : "Login"}
         </button>
+        <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+          New here?{" "}
+          <Link href="/register" className="font-semibold text-emerald-600 hover:text-emerald-500 dark:text-emerald-300">
+            Create an account
+          </Link>
+        </p>
       </form>
     </div>
   );

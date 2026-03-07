@@ -10,26 +10,29 @@ export function PublicNavbar() {
   const [open, setOpen] = React.useState(false);
 
   return (
-    <header className="border-b border-[var(--border)] bg-[var(--surface)]">
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
-          <div className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-sm font-bold text-white shadow-sm">
+    <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
+        <Link href="/" className="flex items-center gap-3">
+          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-sm font-bold text-white shadow-sm">
             CC
           </div>
-          <div>
-            <p className="text-sm font-semibold tracking-tight">CivicConnect</p>
+          <div className="leading-tight">
+            <p className="text-sm font-semibold tracking-tight text-zinc-900 dark:text-white">CivicConnect</p>
             <p className="text-xs text-zinc-500 dark:text-zinc-400">Community issue reporting</p>
           </div>
-        </div>
+        </Link>
 
         <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
-          <Link className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/issues">
+          <Link className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/">
+            Home
+          </Link>
+          <Link className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/issues">
             Issues
           </Link>
-          <Link className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/login">
+          <Link className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/login">
             Login
           </Link>
-          <Link className="rounded-full border border-[var(--border)] px-3 py-1.5 text-zinc-700 shadow-sm hover:bg-[var(--surface-muted)] dark:text-zinc-200" href="/register">
+          <Link className="rounded-full border border-[var(--border)] px-4 py-2 text-xs font-semibold text-zinc-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--surface-muted)] dark:text-zinc-200" href="/register">
             Register
           </Link>
         </nav>
@@ -54,15 +57,34 @@ export function PublicNavbar() {
       </div>
 
       {open ? (
-        <div className="border-t border-[var(--border)] bg-[var(--surface)] px-4 py-3 md:hidden lg:px-8">
+        <div className="border-t border-[var(--border)] bg-[var(--surface)] px-6 py-4 md:hidden">
           <div className="flex flex-col gap-3 text-sm font-medium">
-            <Link className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/issues" onClick={() => setOpen(false)}>
+            <Link
+              className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
+              href="/"
+              onClick={() => setOpen(false)}
+            >
+              Home
+            </Link>
+            <Link
+              className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
+              href="/issues"
+              onClick={() => setOpen(false)}
+            >
               Issues
             </Link>
-            <Link className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/login" onClick={() => setOpen(false)}>
+            <Link
+              className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
+              href="/login"
+              onClick={() => setOpen(false)}
+            >
               Login
             </Link>
-            <Link className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/register" onClick={() => setOpen(false)}>
+            <Link
+              className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
+              href="/register"
+              onClick={() => setOpen(false)}
+            >
               Register
             </Link>
           </div>

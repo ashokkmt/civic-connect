@@ -1,28 +1,13 @@
-import { PublicNavbar } from "@/components/layout/PublicNavbar";
-
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] min-h-screen
-      bg-[radial-gradient(#d4d4d4_0.8px,transparent_0.8px)]
-      bg-[size:24px_24px]
-      bg-[#f8f8f6]
-
-      dark:bg-[radial-gradient(#2a2a2a_0.8px,transparent_0.8px)]
-      dark:bg-[size:24px_24px]
-      dark:bg-[#0f0f0f]">
-      <main className="mx-auto w-full max-w-7xl px-6 lg:px-8 ">{children}</main>
-      {/* <footer className="border-t border-[var(--border)] bg-[var(--surface)]">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-8 text-sm text-zinc-600 dark:text-zinc-300 lg:flex-row lg:items-center lg:justify-between lg:px-8">
-          <div>
-            <p className="font-semibold text-zinc-900 dark:text-white">CivicConnect</p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Community issue reporting and transparency.</p>
-          </div>
-          <div className="flex flex-wrap gap-4 text-xs font-semibold">
-            <span className="text-zinc-500 dark:text-zinc-400">Built for civic clarity</span>
-            <span className="text-zinc-500 dark:text-zinc-400">Privacy-first reporting</span>
-          </div>
-        </div>
-      </footer> */}
+    <div className="relative min-h-screen overflow-hidden bg-[var(--background)] text-[var(--foreground)]">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -top-40 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-emerald-500/18 blur-3xl" />
+        <div className="absolute -bottom-32 left-10 h-72 w-72 rounded-full bg-teal-400/16 blur-3xl" />
+        <div className="absolute -bottom-24 right-8 h-64 w-64 rounded-full bg-cyan-400/18 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(#cbd5f5_0.6px,transparent_0.6px)] bg-[size:22px_22px] opacity-30 dark:bg-[radial-gradient(#1f2937_0.6px,transparent_0.6px)]" />
+      </div>
+      <main className="relative mx-auto w-full max-w-7xl px-6 lg:px-8">{children}</main>
     </div>
   );
 }

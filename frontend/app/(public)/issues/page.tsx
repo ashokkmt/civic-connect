@@ -134,8 +134,10 @@ export default function IssuesPage() {
 
   return (
     <section className="space-y-8 py-10">
-      <header className="space-y-2">
-        <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Public issues</p>
+      <header className="space-y-4">
+        <span className="w-fit rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.35em] text-zinc-500 dark:text-zinc-300">
+          Public Issues
+        </span>
         <h1 className="text-3xl font-semibold text-zinc-900 dark:text-white">Community issue explorer</h1>
         <p className="max-w-2xl text-sm text-zinc-600 dark:text-zinc-300">
           Filter and browse approved community issues near your saved location. Some filters apply only when the
