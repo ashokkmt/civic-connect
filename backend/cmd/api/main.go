@@ -14,6 +14,7 @@ import (
 	"civic/internal/https"
 	"civic/internal/https/handlers"
 	"civic/internal/https/middleware"
+	cld "civic/internal/integrations/cloudinary"
 	"civic/internal/repository"
 	"civic/internal/service"
 	"civic/internal/storage"
@@ -93,6 +94,14 @@ func main() {
 	}
 
 	issueService := service.NewIssueService(issueRepo, priorityWeights)
+	cloudinaryClient := cld.NewClient(cld.Config{
+		CloudName: cfg.CloudinaryCloudName,
+		APIKey:    cfg.CloudinaryAPIKey,
+		APISecret: cfg.CloudinaryAPISecret,
+		Folder:    cfg.CloudinaryFolder,
+	})
+	uploadService := service.NewImageUploadService(cloudinaryClient, cfg.UploadImageMaxBytes)
+	uploadHandler := handlers.UploadHandler{Uploads: uploadService}
 	flagService := service.NewFlagService(flagRepo, issueRepo)
 	issueHandler := handlers.IssueHandler{Issues: issueService, Flags: flagService}
 	slaService := service.NewSLAService(issueRepo, service.SLAWindows{
@@ -125,6 +134,7 @@ func main() {
 		AdminHandler:    adminHandler,
 		Authority:       authorityHandler,
 		HeadHandler:     headHandler,
+		UploadHandler:   uploadHandler,
 	})
 
 	srv := &http.Server{

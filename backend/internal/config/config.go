@@ -25,6 +25,11 @@ type Config struct {
 	SLAResolveHours         int
 	SLAConfirmHours         int
 	SLACloseHours           int
+	CloudinaryCloudName     string
+	CloudinaryAPIKey        string
+	CloudinaryAPISecret     string
+	CloudinaryFolder        string
+	UploadImageMaxBytes     int64
 }
 
 func Load() (Config, error) {
@@ -46,6 +51,11 @@ func Load() (Config, error) {
 		SLAResolveHours:         getEnvInt("SLA_RESOLVE_HOURS", 72),
 		SLAConfirmHours:         getEnvInt("SLA_CONFIRM_HOURS", 72),
 		SLACloseHours:           getEnvInt("SLA_CLOSE_HOURS", 72),
+		CloudinaryCloudName:     getEnv("CLOUDINARY_CLOUD_NAME", ""),
+		CloudinaryAPIKey:        getEnv("CLOUDINARY_API_KEY", ""),
+		CloudinaryAPISecret:     getEnv("CLOUDINARY_API_SECRET", ""),
+		CloudinaryFolder:        getEnv("CLOUDINARY_UPLOAD_FOLDER", "civic/issues"),
+		UploadImageMaxBytes:     getEnvInt64("UPLOAD_IMAGE_MAX_BYTES", 10*1024*1024),
 	}
 
 	if strings.TrimSpace(cfg.MongoURI) == "" {
@@ -86,6 +96,18 @@ func getEnvFloat(key string, fallback float64) float64 {
 		return fallback
 	}
 	parsed, err := strconv.ParseFloat(val, 64)
+	if err != nil {
+		return fallback
+	}
+	return parsed
+}
+
+func getEnvInt64(key string, fallback int64) int64 {
+	val := os.Getenv(key)
+	if val == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseInt(val, 10, 64)
 	if err != nil {
 		return fallback
 	}

@@ -19,6 +19,7 @@ type RouterConfig struct {
 	AdminHandler    handlers.AdminHandler
 	Authority       handlers.AuthorityHandler
 	HeadHandler     handlers.HeadHandler
+	UploadHandler   handlers.UploadHandler
 }
 
 func NewRouter(cfg RouterConfig) http.Handler {
@@ -33,12 +34,14 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	adminRegLimiter := middleware.NewRateLimiter(5, time.Minute)
 	adminRegKey := loginKey
 	submissionLimiter := middleware.NewRateLimiter(20, time.Minute)
+	uploadLimiter := middleware.NewRateLimiter(20, time.Minute)
 	submissionKey := func(r *http.Request) string {
 		if p, ok := middleware.GetPrincipal(r.Context()); ok && strings.TrimSpace(p.UserID) != "" {
 			return "user:" + p.UserID
 		}
 		return "ip:" + strings.Split(r.RemoteAddr, ":")[0]
 	}
+	uploadKey := submissionKey
 
 	mux.Handle("/api/v1/auth/register", http.HandlerFunc(cfg.AuthHandler.Register))
 	mux.Handle("/api/v1/auth/register-admin", adminRegLimiter.Middleware(adminRegKey)(http.HandlerFunc(cfg.AuthHandler.RegisterAdmin)))
@@ -57,12 +60,16 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	headOnly := func(h http.Handler) http.Handler {
 		return cfg.AuthMiddleware(middleware.RequireAuthorityHead()(h))
 	}
+	authOnly := func(h http.Handler) http.Handler {
+		return cfg.AuthMiddleware(h)
+	}
 
 	mux.Handle("/api/v1/issues", http.HandlerFunc(cfg.IssueHandler.ListPublic))
 	mux.Handle("/api/v1/issues/stats", http.HandlerFunc(cfg.IssueHandler.PublicStats))
 	mux.Handle("/api/v1/issues/", http.HandlerFunc(cfg.IssueHandler.GetPublic))
 	mux.Handle("/api/v1/citizen/issues", citizenOnly(submissionLimiter.MiddlewareForMethods(submissionKey, http.MethodPost)(http.HandlerFunc(cfg.IssueHandler.CitizenIssues))))
 	mux.Handle("/api/v1/citizen/issues/", citizenOnly(submissionLimiter.MiddlewareForMethods(submissionKey, http.MethodPost)(http.HandlerFunc(cfg.IssueHandler.CitizenIssueRoutes))))
+	mux.Handle("/api/v1/uploads/images", authOnly(uploadLimiter.MiddlewareForMethods(uploadKey, http.MethodPost)(http.HandlerFunc(cfg.UploadHandler.UploadImage))))
 
 	mux.Handle("/api/v1/head/issues/pending", headOnly(http.HandlerFunc(cfg.Moderation.ListPending)))
 	mux.Handle("/api/v1/head/issues/escalations", headOnly(http.HandlerFunc(cfg.Moderation.ListEscalations)))

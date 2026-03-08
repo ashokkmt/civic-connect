@@ -30,9 +30,6 @@ function makeId() {
 }
 
 export function ImageUploader({ value, onChange, onUploadingChange, onError }: ImageUploaderProps) {
-  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
-  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
-
   const [items, setItems] = useState<UploadItem[]>([]);
   const valueRef = useRef(value);
 
@@ -64,11 +61,6 @@ export function ImageUploader({ value, onChange, onUploadingChange, onError }: I
       return;
     }
 
-    if (!cloudName || !uploadPreset) {
-      onError?.("Cloudinary environment variables are not configured.");
-      return;
-    }
-
     onError?.(null);
     const incoming = Array.from(fileList)
       .filter((file) => file.type.startsWith("image/"))
@@ -88,37 +80,40 @@ export function ImageUploader({ value, onChange, onUploadingChange, onError }: I
     setItems((prev) => [...prev, ...incoming]);
 
     for (const item of incoming) {
-      await uploadSingle(item, cloudName, uploadPreset);
+      await uploadSingle(item);
     }
   };
 
-  const uploadSingle = async (item: UploadItem, cloudName: string, uploadPreset: string) => {
+  const uploadSingle = async (item: UploadItem) => {
     updateItem(item.id, { status: "uploading", progress: 15, error: undefined });
 
     try {
-      const uploadUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
       const formData = new FormData();
       formData.append("file", item.file);
-      formData.append("upload_preset", uploadPreset);
+      formData.append("context", "issue-report");
 
-      const response = await fetch(uploadUrl, {
+      const response = await fetch("/api/upload-image", {
         method: "POST",
         body: formData,
       });
 
       updateItem(item.id, { progress: 85 });
 
-      const payload = (await response.json()) as { secure_url?: string; error?: { message?: string } };
+      const payload = (await response.json()) as {
+        data?: { asset?: { url?: string } };
+        error?: { message?: string };
+      };
 
-      if (!response.ok || !payload.secure_url) {
+      const uploadedUrl = payload.data?.asset?.url;
+      if (!response.ok || !uploadedUrl) {
         const message = payload.error?.message ?? "Image upload failed.";
         updateItem(item.id, { status: "error", progress: 100, error: message });
         onError?.(message);
         return;
       }
 
-      updateItem(item.id, { status: "uploaded", progress: 100, uploadedUrl: payload.secure_url });
-      onChange([...valueRef.current, payload.secure_url]);
+      updateItem(item.id, { status: "uploaded", progress: 100, uploadedUrl });
+      onChange([...valueRef.current, uploadedUrl]);
       onError?.(null);
     } catch {
       const message = "Image upload failed due to network error.";
