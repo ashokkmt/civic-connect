@@ -25,6 +25,13 @@ type AuthResult struct {
 	User  *domain.User
 }
 
+type ProfileUpdateInput struct {
+	Name        string
+	Email       string
+	OldPassword string
+	NewPassword string
+}
+
 func NewAuthService(users repository.UserRepository, jwtManager *jwt.Manager) *AuthService {
 	return &AuthService{users: users, jwt: jwtManager}
 }
@@ -104,6 +111,93 @@ func (s *AuthService) GetByID(ctx context.Context, id string) (*domain.User, err
 		return nil, errx.New("NOT_FOUND", "user not found", 404)
 	}
 	return sanitizeUser(user), nil
+}
+
+func (s *AuthService) UpdateProfile(ctx context.Context, userID string, input ProfileUpdateInput) (*domain.User, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errx.New("UNAUTHORIZED", "missing user", 401)
+	}
+
+	user, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return nil, errx.New("NOT_FOUND", "user not found", 404)
+	}
+
+	name := strings.TrimSpace(input.Name)
+	email := strings.TrimSpace(strings.ToLower(input.Email))
+
+	if email != "" && email != user.Email {
+		existing, err := s.users.GetByEmail(ctx, email)
+		if err == nil && existing != nil && existing.ID != user.ID {
+			return nil, errx.New("ALREADY_EXISTS", "email already in use", 409)
+		}
+		if err != nil && !errors.Is(err, repository.ErrNotFound) {
+			return nil, errx.New("INTERNAL_ERROR", "could not check email", 500)
+		}
+	}
+
+	if input.NewPassword != "" || input.OldPassword != "" {
+		if input.OldPassword == "" || input.NewPassword == "" {
+			return nil, errx.New("INVALID_INPUT", "old and new password are required", 400)
+		}
+		if len(input.NewPassword) < 8 {
+			return nil, errx.New("INVALID_INPUT", "new password must be at least 8 characters", 400)
+		}
+		if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(input.OldPassword)); err != nil {
+			return nil, errx.New("INVALID_CREDENTIALS", "invalid current password", 401)
+		}
+		hash, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), bcrypt.DefaultCost)
+		if err != nil {
+			return nil, errx.New("INTERNAL_ERROR", "could not update password", 500)
+		}
+		if err := s.users.UpdatePassword(ctx, user.ID, string(hash)); err != nil {
+			return nil, errx.New("INTERNAL_ERROR", "could not update password", 500)
+		}
+	}
+
+	if name != "" || email != "" {
+		if err := s.users.UpdateProfile(ctx, user.ID, name, email); err != nil {
+			if errors.Is(err, repository.ErrAlreadyExists) {
+				return nil, errx.New("ALREADY_EXISTS", "email already in use", 409)
+			}
+			if errors.Is(err, repository.ErrNotFound) {
+				return nil, errx.New("NOT_FOUND", "user not found", 404)
+			}
+			return nil, errx.New("INTERNAL_ERROR", "could not update profile", 500)
+		}
+	}
+
+	updated, err := s.users.GetByID(ctx, user.ID)
+	if err != nil {
+		return nil, errx.New("NOT_FOUND", "user not found", 404)
+	}
+	return sanitizeUser(updated), nil
+}
+
+func (s *AuthService) DeleteAccount(ctx context.Context, userID, password string) error {
+	if strings.TrimSpace(userID) == "" {
+		return errx.New("UNAUTHORIZED", "missing user", 401)
+	}
+	if strings.TrimSpace(password) == "" {
+		return errx.New("INVALID_INPUT", "password is required", 400)
+	}
+
+	user, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return errx.New("NOT_FOUND", "user not found", 404)
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		return errx.New("INVALID_CREDENTIALS", "invalid password", 401)
+	}
+
+	if err := s.users.DeleteByID(ctx, user.ID); err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return errx.New("NOT_FOUND", "user not found", 404)
+		}
+		return errx.New("INTERNAL_ERROR", "could not delete user", 500)
+	}
+	return nil
 }
 
 func sanitizeUser(user *domain.User) *domain.User {

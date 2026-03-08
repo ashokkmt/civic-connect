@@ -14,8 +14,6 @@ export async function GET(request: Request) {
   const lat = searchParams.get("lat");
   const lng = searchParams.get("lng");
   const radiusMeters = searchParams.get("radiusMeters");
-  const limit = searchParams.get("limit");
-  const offset = searchParams.get("offset");
   const status = searchParams.get("status");
   const severity = searchParams.get("severity");
   const category = searchParams.get("category");
@@ -31,8 +29,6 @@ export async function GET(request: Request) {
 
   const query = new URLSearchParams({ lat, lng });
   if (radiusMeters) query.set("radiusMeters", radiusMeters);
-  if (limit) query.set("limit", limit);
-  if (offset) query.set("offset", offset);
   if (status) query.set("status", status);
   if (severity) query.set("severity", severity);
   if (category) query.set("category", category);
@@ -40,7 +36,7 @@ export async function GET(request: Request) {
   if (dateTo) query.set("dateTo", dateTo);
 
   try {
-    const response = await fetch(`${backendBase}/api/v1/issues?${query.toString()}`, {
+    const response = await fetch(`${backendBase}/api/v1/issues/stats?${query.toString()}`, {
       method: "GET",
     });
 

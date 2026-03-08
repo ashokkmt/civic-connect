@@ -66,7 +66,7 @@ func (h IssueHandler) Create(w http.ResponseWriter, r *http.Request) {
 	payload := map[string]interface{}{
 		"created":        result.Created,
 		"supporterAdded": result.SupporterAdded,
-		"issue":          toIssuePublicDTO(result.Issue),
+		"issue":          toIssuePublicDTO(result.Issue, principal.UserID),
 	}
 	if result.MergedIntoIssueID != nil {
 		payload["mergedIntoIssueId"] = result.MergedIntoIssueID.Hex()
@@ -118,8 +118,43 @@ func (h IssueHandler) ListPublic(w http.ResponseWriter, r *http.Request) {
 	if val, ok := parseFloatQuery(r, "limit"); ok {
 		limit = int64(val)
 	}
+	offset := int64(0)
+	if val, ok := parseFloatQuery(r, "offset"); ok {
+		offset = int64(val)
+	}
 
-	issues, err := h.Issues.ListPublicNearby(r.Context(), lat, lng, radius, limit)
+	statuses, err := parseStatusListQuery(r, "status")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+	severities := parseStringListQuery(r, "severity")
+	categories := parseStringListQuery(r, "category")
+	dateFrom, err := parseTimeQuery(r, "dateFrom")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+	dateTo, err := parseTimeQuery(r, "dateTo")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	issues, err := h.Issues.ListPublic(r.Context(), service.PublicIssueQuery{
+		Lat:          lat,
+		Lng:          lng,
+		RadiusMeters: radius,
+		Limit:        limit,
+		Offset:       offset,
+		Filters: service.PublicIssueFilters{
+			Statuses:   statuses,
+			Severities: severities,
+			Categories: categories,
+			DateFrom:   dateFrom,
+			DateTo:     dateTo,
+		},
+	})
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
@@ -127,10 +162,75 @@ func (h IssueHandler) ListPublic(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]issuePublicDTO, 0, len(issues))
 	for _, issue := range issues {
-		resp = append(resp, toIssuePublicDTO(issue))
+		resp = append(resp, toIssuePublicDTO(issue, ""))
 	}
 
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"items": resp})
+}
+
+func (h IssueHandler) PublicStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+
+	lat, ok := parseFloatQuery(r, "lat")
+	if !ok {
+		response.WriteError(w, r, errx.New("INVALID_INPUT", "lat is required", http.StatusBadRequest))
+		return
+	}
+	lng, ok := parseFloatQuery(r, "lng")
+	if !ok {
+		response.WriteError(w, r, errx.New("INVALID_INPUT", "lng is required", http.StatusBadRequest))
+		return
+	}
+
+	radius := int64(0)
+	if val, ok := parseFloatQuery(r, "radiusMeters"); ok {
+		radius = int64(val)
+	}
+
+	statuses, err := parseStatusListQuery(r, "status")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+	severities := parseStringListQuery(r, "severity")
+	categories := parseStringListQuery(r, "category")
+	dateFrom, err := parseTimeQuery(r, "dateFrom")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+	dateTo, err := parseTimeQuery(r, "dateTo")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	stats, err := h.Issues.StatsPublic(r.Context(), service.PublicIssueQuery{
+		Lat:          lat,
+		Lng:          lng,
+		RadiusMeters: radius,
+		Filters: service.PublicIssueFilters{
+			Statuses:   statuses,
+			Severities: severities,
+			Categories: categories,
+			DateFrom:   dateFrom,
+			DateTo:     dateTo,
+		},
+	})
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{
+		"total":            stats.Total,
+		"pendingApprovals": stats.PendingApprovals,
+		"inProgress":       stats.InProgress,
+		"resolved":         stats.Resolved,
+	})
 }
 
 func (h IssueHandler) GetPublic(w http.ResponseWriter, r *http.Request) {
@@ -151,7 +251,7 @@ func (h IssueHandler) GetPublic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue)})
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue, "")})
 }
 
 func (h IssueHandler) ListCitizen(w http.ResponseWriter, r *http.Request) {
@@ -194,7 +294,7 @@ func (h IssueHandler) ListCitizen(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]issuePublicDTO, 0, len(issues))
 	for _, issue := range issues {
-		resp = append(resp, toIssuePublicDTO(issue))
+		resp = append(resp, toIssuePublicDTO(issue, principal.UserID))
 	}
 
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"items": resp})
@@ -224,7 +324,7 @@ func (h IssueHandler) GetCitizen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue)})
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue, principal.UserID)})
 }
 
 func (h IssueHandler) Support(w http.ResponseWriter, r *http.Request) {
@@ -253,7 +353,7 @@ func (h IssueHandler) Support(w http.ResponseWriter, r *http.Request) {
 
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"supporterAdded": added,
-		"issue":          toIssuePublicDTO(issue),
+		"issue":          toIssuePublicDTO(issue, principal.UserID),
 	})
 }
 
@@ -281,7 +381,7 @@ func (h IssueHandler) ConfirmResolution(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue)})
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue, principal.UserID)})
 }
 
 func (h IssueHandler) CitizenIssueRoutes(w http.ResponseWriter, r *http.Request) {
@@ -305,13 +405,27 @@ type issuePublicDTO struct {
 	Status         domain.IssueStatus `json:"status"`
 	SupporterCount int                `json:"supporterCount"`
 	DepartmentID   string             `json:"departmentId"`
+	IsReporter     bool               `json:"isReporter"`
+	IsSupporter    bool               `json:"isSupporter"`
 	CreatedAt      string             `json:"createdAt"`
 	UpdatedAt      string             `json:"updatedAt"`
 }
 
-func toIssuePublicDTO(issue *domain.Issue) issuePublicDTO {
+func toIssuePublicDTO(issue *domain.Issue, userID string) issuePublicDTO {
 	if issue == nil {
 		return issuePublicDTO{}
+	}
+
+	isReporter := false
+	isSupporter := false
+	if userID != "" {
+		isReporter = issue.CreatedByUserID == userID
+		for _, supporterID := range issue.SupporterUserIDs {
+			if supporterID == userID {
+				isSupporter = true
+				break
+			}
+		}
 	}
 
 	return issuePublicDTO{
@@ -323,6 +437,8 @@ func toIssuePublicDTO(issue *domain.Issue) issuePublicDTO {
 		Status:         issue.Status,
 		SupporterCount: issue.SupporterCount,
 		DepartmentID:   issue.DepartmentID,
+		IsReporter:     isReporter,
+		IsSupporter:    isSupporter,
 		CreatedAt:      issue.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:      issue.UpdatedAt.Format(time.RFC3339),
 	}
@@ -338,6 +454,51 @@ func parseFloatQuery(r *http.Request, key string) (float64, bool) {
 		return 0, false
 	}
 	return parsed, true
+}
+
+func parseStringListQuery(r *http.Request, key string) []string {
+	val := strings.TrimSpace(r.URL.Query().Get(key))
+	if val == "" {
+		return nil
+	}
+
+	parts := strings.Split(val, ",")
+	results := make([]string, 0, len(parts))
+	for _, part := range parts {
+		item := strings.TrimSpace(part)
+		if item != "" {
+			results = append(results, item)
+		}
+	}
+	return results
+}
+
+func parseStatusListQuery(r *http.Request, key string) ([]domain.IssueStatus, error) {
+	values := parseStringListQuery(r, key)
+	if len(values) == 0 {
+		return nil, nil
+	}
+
+	statuses := make([]domain.IssueStatus, 0, len(values))
+	for _, value := range values {
+		status := domain.IssueStatus(strings.TrimSpace(value))
+		if status != "" {
+			statuses = append(statuses, status)
+		}
+	}
+	return statuses, nil
+}
+
+func parseTimeQuery(r *http.Request, key string) (*time.Time, error) {
+	val := strings.TrimSpace(r.URL.Query().Get(key))
+	if val == "" {
+		return nil, nil
+	}
+	parsed, err := time.Parse(time.RFC3339, val)
+	if err != nil {
+		return nil, errx.New("INVALID_INPUT", "invalid date", http.StatusBadRequest)
+	}
+	return &parsed, nil
 }
 
 func parseIDFromPath(path, prefix string) (primitive.ObjectID, error) {

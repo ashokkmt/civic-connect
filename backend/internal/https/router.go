@@ -36,7 +36,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	mux.Handle("/api/v1/auth/register", http.HandlerFunc(cfg.AuthHandler.Register))
 	mux.Handle("/api/v1/auth/register-admin", adminRegLimiter.Middleware(adminRegKey)(http.HandlerFunc(cfg.AuthHandler.RegisterAdmin)))
 	mux.Handle("/api/v1/auth/login", loginLimiter.Middleware(loginKey)(http.HandlerFunc(cfg.AuthHandler.Login)))
-	mux.Handle("/api/v1/me", cfg.AuthMiddleware(http.HandlerFunc(cfg.AuthHandler.Me)))
+	mux.Handle("/api/v1/me", cfg.AuthMiddleware(http.HandlerFunc(cfg.AuthHandler.MeRoutes)))
 
 	citizenOnly := func(h http.Handler) http.Handler {
 		return cfg.AuthMiddleware(middleware.RequireRole(string(domain.RoleCitizen))(h))
@@ -52,6 +52,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	}
 
 	mux.Handle("/api/v1/issues", http.HandlerFunc(cfg.IssueHandler.ListPublic))
+	mux.Handle("/api/v1/issues/stats", http.HandlerFunc(cfg.IssueHandler.PublicStats))
 	mux.Handle("/api/v1/issues/", http.HandlerFunc(cfg.IssueHandler.GetPublic))
 	mux.Handle("/api/v1/citizen/issues", citizenOnly(http.HandlerFunc(cfg.IssueHandler.CitizenIssues)))
 	mux.Handle("/api/v1/citizen/issues/", citizenOnly(http.HandlerFunc(cfg.IssueHandler.CitizenIssueRoutes)))

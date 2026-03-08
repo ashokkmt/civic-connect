@@ -57,7 +57,7 @@ func (h ModerationHandler) ListPending(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]issuePublicDTO, 0, len(issues))
 	for _, issue := range issues {
-		resp = append(resp, toIssuePublicDTO(issue))
+		resp = append(resp, toIssuePublicDTO(issue, principal.UserID))
 	}
 
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"items": resp})

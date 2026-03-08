@@ -28,6 +28,17 @@ type IssuesResponse = {
   error?: { message?: string };
 };
 
+type StatsResponse = {
+  success: boolean;
+  data?: {
+    total: number;
+    pendingApprovals: number;
+    inProgress: number;
+    resolved: number;
+  };
+  error?: { message?: string };
+};
+
 const DEFAULT_RADIUS = 2000;
 const DEFAULT_LIMIT = 100;
 const MAX_RESOLVED_MARQUEE = 12;
@@ -39,19 +50,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
 
   const locationReady = useMemo(() => location && isValidLocation(location), [location]);
-  const stats = useMemo(() => {
-    const total = issues.length;
-    const pendingApprovals = issues.filter((issue) => issue.status === "PENDING_APPROVAL").length;
-    const inProgress = issues.filter((issue) => issue.status === "IN_PROGRESS").length;
-    const resolved = issues.filter((issue) => ["RESOLVED", "CLOSED"].includes(issue.status)).length;
-
-    return {
-      total,
-      pendingApprovals,
-      inProgress,
-      resolved,
-    };
-  }, [issues]);
+  const [stats, setStats] = useState({ total: 0, pendingApprovals: 0, inProgress: 0, resolved: 0 });
 
   const resolvedIssues = useMemo(
     () => issues.filter((issue) => ["RESOLVED", "CLOSED"].includes(issue.status)),
@@ -69,27 +68,54 @@ export default function HomePage() {
       .slice(0, MAX_RESOLVED_MARQUEE);
   }, [issues, resolvedIssues]);
 
+  const computeStatsFromIssues = (items: IssuePublic[]) => {
+    const total = items.length;
+    const pendingApprovals = items.filter((issue) => issue.status === "PENDING_APPROVAL").length;
+    const inProgress = items.filter((issue) => issue.status === "IN_PROGRESS").length;
+    const resolved = items.filter((issue) => ["RESOLVED", "CLOSED"].includes(issue.status)).length;
+
+    return { total, pendingApprovals, inProgress, resolved };
+  };
+
   const loadIssues = async (lat: number, lng: number, signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(
-        `/api/public/issues?lat=${lat}&lng=${lng}&radiusMeters=${DEFAULT_RADIUS}&limit=${DEFAULT_LIMIT}`,
-        { method: "GET", signal }
-      );
-      const payload = (await response.json()) as IssuesResponse;
-      if (!response.ok || !payload.success) {
-        setError(payload.error?.message ?? "Unable to load issues");
+      const [issuesResponse, statsResponse] = await Promise.all([
+        fetch(
+          `/api/public/issues?lat=${lat}&lng=${lng}&radiusMeters=${DEFAULT_RADIUS}&limit=${DEFAULT_LIMIT}`,
+          { method: "GET", signal }
+        ),
+        fetch(`/api/public/issues/stats?lat=${lat}&lng=${lng}&radiusMeters=${DEFAULT_RADIUS}`, {
+          method: "GET",
+          signal,
+        }),
+      ]);
+
+      const issuesPayload = (await issuesResponse.json()) as IssuesResponse;
+      if (!issuesResponse.ok || !issuesPayload.success) {
+        setError(issuesPayload.error?.message ?? "Unable to load issues");
         setIssues([]);
+        setStats({ total: 0, pendingApprovals: 0, inProgress: 0, resolved: 0 });
         return;
       }
-      setIssues(payload.data?.items ?? []);
+
+      const items = issuesPayload.data?.items ?? [];
+      setIssues(items);
+
+      const statsPayload = (await statsResponse.json()) as StatsResponse;
+      if (statsResponse.ok && statsPayload.success && statsPayload.data) {
+        setStats(statsPayload.data);
+      } else {
+        setStats(computeStatsFromIssues(items));
+      }
     } catch (err) {
       if ((err as DOMException).name === "AbortError") {
         return;
       }
       setError("Unable to load issues");
+      setStats({ total: 0, pendingApprovals: 0, inProgress: 0, resolved: 0 });
     } finally {
       setLoading(false);
     }

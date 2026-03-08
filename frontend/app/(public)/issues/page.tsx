@@ -26,7 +26,7 @@ type IssuesResponse = {
 };
 
 const DEFAULT_RADIUS = 2000;
-const DEFAULT_LIMIT = 100;
+const PAGE_SIZE = 6;
 
 export default function IssuesPage() {
   const { location } = useLocation();
@@ -39,62 +39,21 @@ export default function IssuesPage() {
   const [severityFilter, setSeverityFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [distanceFilter, setDistanceFilter] = useState("all");
-  const [visibleCount, setVisibleCount] = useState(6);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const locationReady = useMemo(() => location && isValidLocation(location), [location]);
   const filteredIssues = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
-    const now = Date.now();
-    const dateWindowMs =
-      dateFilter === "24h"
-        ? 24 * 60 * 60 * 1000
-        : dateFilter === "7d"
-          ? 7 * 24 * 60 * 60 * 1000
-          : dateFilter === "30d"
-            ? 30 * 24 * 60 * 60 * 1000
-            : null;
+    if (!normalizedQuery) {
+      return issues;
+    }
 
     return issues.filter((issue) => {
-      if (normalizedQuery) {
-        const haystack = `${issue.title} ${issue.description}`.toLowerCase();
-        if (!haystack.includes(normalizedQuery)) {
-          return false;
-        }
-      }
-
-      if (statusFilter !== "all" && issue.status !== statusFilter) {
-        return false;
-      }
-
-      if (categoryFilter !== "all" && issue.category && issue.category !== categoryFilter) {
-        return false;
-      }
-
-      if (severityFilter !== "all" && issue.severity && issue.severity !== severityFilter) {
-        return false;
-      }
-
-      if (distanceFilter !== "all" && typeof issue.distanceMeters === "number") {
-        const maxDistance = Number(distanceFilter);
-        if (!Number.isNaN(maxDistance) && issue.distanceMeters > maxDistance) {
-          return false;
-        }
-      }
-
-      if (dateWindowMs && issue.createdAt) {
-        const createdAtMs = new Date(issue.createdAt).getTime();
-        if (Number.isNaN(createdAtMs) || now - createdAtMs > dateWindowMs) {
-          return false;
-        }
-      }
-
-      return true;
+      const haystack = `${issue.title} ${issue.description}`.toLowerCase();
+      return haystack.includes(normalizedQuery);
     });
-  }, [issues, query, statusFilter, categoryFilter, severityFilter, dateFilter, distanceFilter]);
-
-  useEffect(() => {
-    setVisibleCount(6);
-  }, [query, statusFilter, categoryFilter, severityFilter, dateFilter, distanceFilter]);
+  }, [issues, query]);
 
   useEffect(() => {
     if (!locationReady) {
@@ -107,22 +66,52 @@ export default function IssuesPage() {
       setError(null);
 
       try {
-        const response = await fetch(
-          `/api/public/issues?lat=${location!.lat}&lng=${location!.lng}&radiusMeters=${DEFAULT_RADIUS}&limit=${DEFAULT_LIMIT}`,
-          { method: "GET", signal: controller.signal }
-        );
+        const queryParams = new URLSearchParams({
+          lat: String(location!.lat),
+          lng: String(location!.lng),
+          radiusMeters: distanceFilter !== "all" ? distanceFilter : String(DEFAULT_RADIUS),
+          limit: String(PAGE_SIZE),
+          offset: "0",
+        });
+
+        if (statusFilter !== "all") queryParams.set("status", statusFilter);
+        if (categoryFilter !== "all") queryParams.set("category", categoryFilter);
+        if (severityFilter !== "all") queryParams.set("severity", severityFilter);
+
+        if (dateFilter !== "all") {
+          const now = new Date();
+          const dateFrom = new Date(
+            dateFilter === "24h"
+              ? now.getTime() - 24 * 60 * 60 * 1000
+              : dateFilter === "7d"
+                ? now.getTime() - 7 * 24 * 60 * 60 * 1000
+                : now.getTime() - 30 * 24 * 60 * 60 * 1000
+          );
+          queryParams.set("dateFrom", dateFrom.toISOString());
+          queryParams.set("dateTo", now.toISOString());
+        }
+
+        const response = await fetch(`/api/public/issues?${queryParams.toString()}`, {
+          method: "GET",
+          signal: controller.signal,
+        });
         const payload = (await response.json()) as IssuesResponse;
         if (!response.ok || !payload.success) {
           setError(payload.error?.message ?? "Unable to load issues");
           setIssues([]);
+          setHasMore(false);
           return;
         }
-        setIssues(payload.data?.items ?? []);
+
+        const items = payload.data?.items ?? [];
+        setIssues(items);
+        setHasMore(items.length === PAGE_SIZE);
       } catch (err) {
         if ((err as DOMException).name === "AbortError") {
           return;
         }
         setError("Unable to load issues");
+        setHasMore(false);
       } finally {
         setLoading(false);
       }
@@ -130,7 +119,66 @@ export default function IssuesPage() {
 
     load();
     return () => controller.abort();
-  }, [locationReady, location?.lat, location?.lng]);
+  }, [
+    locationReady,
+    location?.lat,
+    location?.lng,
+    statusFilter,
+    categoryFilter,
+    severityFilter,
+    dateFilter,
+    distanceFilter,
+  ]);
+
+  const loadMore = async () => {
+    if (!locationReady || loadingMore || !hasMore) {
+      return;
+    }
+
+    setLoadingMore(true);
+
+    try {
+      const queryParams = new URLSearchParams({
+        lat: String(location!.lat),
+        lng: String(location!.lng),
+        radiusMeters: distanceFilter !== "all" ? distanceFilter : String(DEFAULT_RADIUS),
+        limit: String(PAGE_SIZE),
+        offset: String(issues.length),
+      });
+
+      if (statusFilter !== "all") queryParams.set("status", statusFilter);
+      if (categoryFilter !== "all") queryParams.set("category", categoryFilter);
+      if (severityFilter !== "all") queryParams.set("severity", severityFilter);
+
+      if (dateFilter !== "all") {
+        const now = new Date();
+        const dateFrom = new Date(
+          dateFilter === "24h"
+            ? now.getTime() - 24 * 60 * 60 * 1000
+            : dateFilter === "7d"
+              ? now.getTime() - 7 * 24 * 60 * 60 * 1000
+              : now.getTime() - 30 * 24 * 60 * 60 * 1000
+        );
+        queryParams.set("dateFrom", dateFrom.toISOString());
+        queryParams.set("dateTo", now.toISOString());
+      }
+
+      const response = await fetch(`/api/public/issues?${queryParams.toString()}`, { method: "GET" });
+      const payload = (await response.json()) as IssuesResponse;
+      if (!response.ok || !payload.success) {
+        setHasMore(false);
+        return;
+      }
+
+      const items = payload.data?.items ?? [];
+      setIssues((prev) => [...prev, ...items]);
+      setHasMore(items.length === PAGE_SIZE);
+    } catch {
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   return (
     <section className="space-y-8 py-10">
@@ -264,7 +312,7 @@ export default function IssuesPage() {
           ) : (
             <>
               <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-                <span>Showing {Math.min(visibleCount, filteredIssues.length)} of {filteredIssues.length} issues</span>
+                <span>Showing {filteredIssues.length} issues</span>
                 <span>Sorted by most recent report</span>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
@@ -274,18 +322,18 @@ export default function IssuesPage() {
                     const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
                     return bDate - aDate;
                   })
-                  .slice(0, visibleCount)
                   .map((issue) => (
                     <IssueCard key={issue.id} issue={issue} />
                   ))}
               </div>
-              {visibleCount < filteredIssues.length ? (
+              {hasMore ? (
                 <button
                   type="button"
-                  onClick={() => setVisibleCount((count) => count + 6)}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-[var(--surface-muted)] dark:text-zinc-200"
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200"
                 >
-                  Load more issues
+                  {loadingMore ? "Loading more issues..." : "Load more issues"}
                 </button>
               ) : null}
             </>

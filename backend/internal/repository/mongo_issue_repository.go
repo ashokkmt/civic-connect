@@ -97,19 +97,10 @@ func (r *MongoIssueRepository) GetByID(ctx context.Context, id primitive.ObjectI
 	return &issue, nil
 }
 
-func (r *MongoIssueRepository) ListPublicNearby(ctx context.Context, location domain.GeoPoint, radiusMeters int64, statuses []domain.IssueStatus, limit int64) ([]*domain.Issue, error) {
-	filter := bson.M{
-		"location": bson.M{
-			"$nearSphere": bson.M{
-				"$geometry":    bson.M{"type": "Point", "coordinates": location.Coordinates},
-				"$maxDistance": radiusMeters,
-			},
-		},
-		"status":   bson.M{"$in": statuses},
-		"isMerged": bson.M{"$ne": true},
-	}
+func (r *MongoIssueRepository) ListPublicNearby(ctx context.Context, location domain.GeoPoint, radiusMeters int64, statuses []domain.IssueStatus, limit int64, offset int64, filters PublicIssueFilters) ([]*domain.Issue, error) {
+	filter := buildPublicFilter(location, radiusMeters, statuses, filters)
 
-	opts := options.Find().SetLimit(limit).SetSort(bson.D{{Key: "createdAt", Value: -1}})
+	opts := options.Find().SetLimit(limit).SetSkip(offset).SetSort(bson.D{{Key: "createdAt", Value: -1}})
 	cur, err := r.col.Find(ctx, filter, opts)
 	if err != nil {
 		return nil, err
@@ -128,6 +119,79 @@ func (r *MongoIssueRepository) ListPublicNearby(ctx context.Context, location do
 		return nil, err
 	}
 	return out, nil
+}
+
+func (r *MongoIssueRepository) StatsPublicNearby(ctx context.Context, location domain.GeoPoint, radiusMeters int64, statuses []domain.IssueStatus, filters PublicIssueFilters) (PublicIssueStats, error) {
+	filter := buildPublicFilter(location, radiusMeters, statuses, filters)
+	pipeline := mongo.Pipeline{
+		{{Key: "$match", Value: filter}},
+		{{Key: "$group", Value: bson.M{
+			"_id":   "$status",
+			"count": bson.M{"$sum": 1},
+		}}},
+	}
+
+	cur, err := r.col.Aggregate(ctx, pipeline)
+	if err != nil {
+		return PublicIssueStats{}, err
+	}
+	defer cur.Close(ctx)
+
+	stats := PublicIssueStats{}
+	for cur.Next(ctx) {
+		var row struct {
+			ID    string `bson:"_id"`
+			Count int64  `bson:"count"`
+		}
+		if err := cur.Decode(&row); err != nil {
+			return PublicIssueStats{}, err
+		}
+		stats.Total += row.Count
+		switch row.ID {
+		case string(domain.StatusPendingApproval):
+			stats.PendingApprovals += row.Count
+		case string(domain.StatusInProgress):
+			stats.InProgress += row.Count
+		case string(domain.StatusResolved), string(domain.StatusClosed):
+			stats.Resolved += row.Count
+		}
+	}
+	if err := cur.Err(); err != nil {
+		return PublicIssueStats{}, err
+	}
+	return stats, nil
+}
+
+func buildPublicFilter(location domain.GeoPoint, radiusMeters int64, statuses []domain.IssueStatus, filters PublicIssueFilters) bson.M {
+	filter := bson.M{
+		"location": bson.M{
+			"$nearSphere": bson.M{
+				"$geometry":    bson.M{"type": "Point", "coordinates": location.Coordinates},
+				"$maxDistance": radiusMeters,
+			},
+		},
+		"status":   bson.M{"$in": statuses},
+		"isMerged": bson.M{"$ne": true},
+	}
+
+	if len(filters.Severities) > 0 {
+		filter["severity"] = bson.M{"$in": filters.Severities}
+	}
+	if len(filters.Categories) > 0 {
+		filter["category"] = bson.M{"$in": filters.Categories}
+	}
+	if filters.DateFrom != nil || filters.DateTo != nil {
+		rangeFilter := bson.M{}
+		if filters.DateFrom != nil {
+			rangeFilter["$gte"] = *filters.DateFrom
+		}
+		if filters.DateTo != nil {
+			rangeFilter["$lte"] = *filters.DateTo
+		}
+		filter["createdAt"] = rangeFilter
+	}
+
+	return filter
 }
 
 func (r *MongoIssueRepository) ListCitizenNearby(ctx context.Context, location domain.GeoPoint, radiusMeters int64, userID string, publicStatuses []domain.IssueStatus, limit int64) ([]*domain.Issue, error) {

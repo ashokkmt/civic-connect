@@ -42,6 +42,31 @@ type IssueCreateResult struct {
 	SupporterAdded    bool
 }
 
+type PublicIssueFilters struct {
+	Statuses   []domain.IssueStatus
+	Severities []string
+	Categories []string
+	DateFrom   *time.Time
+	DateTo     *time.Time
+}
+
+type PublicIssueQuery struct {
+	Lat           float64
+	Lng           float64
+	RadiusMeters  int64
+	Limit         int64
+	Offset        int64
+	Filters       PublicIssueFilters
+	IncludeHidden bool
+}
+
+type PublicIssueStats struct {
+	Total            int64
+	PendingApprovals int64
+	InProgress       int64
+	Resolved         int64
+}
+
 func NewIssueService(issues repository.IssueRepository, weights priority.Weights) *IssueService {
 	return &IssueService{issues: issues, priorityWeights: weights}
 }
@@ -61,6 +86,9 @@ func (s *IssueService) CreateOrMergeIssue(ctx context.Context, input IssueCreate
 	departmentID := strings.TrimSpace(input.DepartmentID)
 	if departmentID == "" {
 		return nil, errx.New("INVALID_INPUT", "departmentId is required", 400)
+	}
+	if len(input.ImageURLs) == 0 {
+		return nil, errx.New("INVALID_INPUT", "imageUrls is required", 400)
 	}
 
 	location := domain.GeoPoint{Type: "Point", Coordinates: [2]float64{input.Lng, input.Lat}}
@@ -210,23 +238,61 @@ func (s *IssueService) GetCitizenByID(ctx context.Context, id primitive.ObjectID
 	return issue, nil
 }
 
-func (s *IssueService) ListPublicNearby(ctx context.Context, lat, lng float64, radiusMeters int64, limit int64) ([]*domain.Issue, error) {
-	if !geo.ValidateCoordinates(lat, lng) {
+func (s *IssueService) ListPublic(ctx context.Context, query PublicIssueQuery) ([]*domain.Issue, error) {
+	if !geo.ValidateCoordinates(query.Lat, query.Lng) {
 		return nil, errx.New("INVALID_INPUT", "invalid coordinates", 400)
 	}
-	if radiusMeters <= 0 {
-		radiusMeters = publicDefaultRadiusMeters
+	if query.RadiusMeters <= 0 {
+		query.RadiusMeters = publicDefaultRadiusMeters
 	}
-	if limit <= 0 {
-		limit = publicDefaultLimit
+	if query.Limit <= 0 {
+		query.Limit = publicDefaultLimit
 	}
 
-	location := domain.GeoPoint{Type: "Point", Coordinates: [2]float64{lng, lat}}
-	issues, err := s.issues.ListPublicNearby(ctx, location, radiusMeters, publicStatuses(), limit)
+	statuses := filterPublicStatuses(query.Filters.Statuses)
+	if len(statuses) == 0 {
+		statuses = publicStatuses()
+	}
+
+	location := domain.GeoPoint{Type: "Point", Coordinates: [2]float64{query.Lng, query.Lat}}
+	issues, err := s.issues.ListPublicNearby(ctx, location, query.RadiusMeters, statuses, query.Limit, query.Offset, repository.PublicIssueFilters{
+		Severities: query.Filters.Severities,
+		Categories: query.Filters.Categories,
+		DateFrom:   query.Filters.DateFrom,
+		DateTo:     query.Filters.DateTo,
+	})
 	if err != nil {
 		return nil, errx.New("INTERNAL_ERROR", "could not list issues", 500)
 	}
 	return issues, nil
+}
+
+func (s *IssueService) StatsPublic(ctx context.Context, query PublicIssueQuery) (*PublicIssueStats, error) {
+	if !geo.ValidateCoordinates(query.Lat, query.Lng) {
+		return nil, errx.New("INVALID_INPUT", "invalid coordinates", 400)
+	}
+	if query.RadiusMeters <= 0 {
+		query.RadiusMeters = publicDefaultRadiusMeters
+	}
+
+	statuses := filterStatsStatuses(query.Filters.Statuses)
+	location := domain.GeoPoint{Type: "Point", Coordinates: [2]float64{query.Lng, query.Lat}}
+	stats, err := s.issues.StatsPublicNearby(ctx, location, query.RadiusMeters, statuses, repository.PublicIssueFilters{
+		Severities: query.Filters.Severities,
+		Categories: query.Filters.Categories,
+		DateFrom:   query.Filters.DateFrom,
+		DateTo:     query.Filters.DateTo,
+	})
+	if err != nil {
+		return nil, errx.New("INTERNAL_ERROR", "could not load stats", 500)
+	}
+
+	return &PublicIssueStats{
+		Total:            stats.Total,
+		PendingApprovals: stats.PendingApprovals,
+		InProgress:       stats.InProgress,
+		Resolved:         stats.Resolved,
+	}, nil
 }
 
 func (s *IssueService) ListCitizenNearby(ctx context.Context, userID string, lat, lng float64, radiusMeters int64, limit int64) ([]*domain.Issue, error) {
@@ -308,6 +374,38 @@ func publicStatuses() []domain.IssueStatus {
 		domain.StatusAwaitingHeadClose,
 		domain.StatusClosed,
 	}
+}
+
+func filterPublicStatuses(input []domain.IssueStatus) []domain.IssueStatus {
+	if len(input) == 0 {
+		return nil
+	}
+
+	allowed := publicStatuses()
+	allowedSet := map[domain.IssueStatus]bool{}
+	for _, s := range allowed {
+		allowedSet[s] = true
+	}
+
+	var filtered []domain.IssueStatus
+	for _, s := range input {
+		if allowedSet[s] {
+			filtered = append(filtered, s)
+		}
+	}
+	return filtered
+}
+
+func filterStatsStatuses(input []domain.IssueStatus) []domain.IssueStatus {
+	if len(input) == 0 {
+		return publicStatuses()
+	}
+
+	filtered := filterPublicStatuses(input)
+	if len(filtered) == 0 {
+		return publicStatuses()
+	}
+	return filtered
 }
 
 func isPublicStatus(status domain.IssueStatus) bool {

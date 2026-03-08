@@ -95,6 +95,75 @@ func (r *MongoUserRepository) Create(ctx context.Context, user *domain.User) err
 	return err
 }
 
+func (r *MongoUserRepository) UpdateProfile(ctx context.Context, id, name, email string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ErrNotFound
+	}
+
+	update := bson.M{"updatedAt": time.Now().UTC()}
+	if strings.TrimSpace(name) != "" {
+		update["name"] = strings.TrimSpace(name)
+	}
+	if strings.TrimSpace(email) != "" {
+		update["email"] = normalizeEmail(email)
+	}
+	if len(update) == 1 {
+		return nil
+	}
+
+	res, err := r.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": update})
+	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return ErrAlreadyExists
+		}
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *MongoUserRepository) UpdatePassword(ctx context.Context, id, passwordHash string) error {
+	id = strings.TrimSpace(id)
+	if id == "" || strings.TrimSpace(passwordHash) == "" {
+		return ErrNotFound
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"passwordHash": passwordHash,
+			"updatedAt":    time.Now().UTC(),
+		},
+	}
+
+	res, err := r.col.UpdateOne(ctx, bson.M{"_id": id}, update)
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *MongoUserRepository) DeleteByID(ctx context.Context, id string) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ErrNotFound
+	}
+
+	res, err := r.col.DeleteOne(ctx, bson.M{"_id": id})
+	if err != nil {
+		return err
+	}
+	if res.DeletedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *MongoUserRepository) BackfillAuthoritySubRole(ctx context.Context, subRole domain.AuthoritySubRole) (int64, error) {
 	filter := bson.M{
 		"role": string(domain.RoleAuthority),

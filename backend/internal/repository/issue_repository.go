@@ -14,7 +14,8 @@ type IssueRepository interface {
 	FindNearbyActive(ctx context.Context, location domain.GeoPoint, departmentID string, radiusMeters int64, statuses []domain.IssueStatus) (*domain.Issue, error)
 	Create(ctx context.Context, issue *domain.Issue) error
 	GetByID(ctx context.Context, id primitive.ObjectID) (*domain.Issue, error)
-	ListPublicNearby(ctx context.Context, location domain.GeoPoint, radiusMeters int64, statuses []domain.IssueStatus, limit int64) ([]*domain.Issue, error)
+	ListPublicNearby(ctx context.Context, location domain.GeoPoint, radiusMeters int64, statuses []domain.IssueStatus, limit int64, offset int64, filters PublicIssueFilters) ([]*domain.Issue, error)
+	StatsPublicNearby(ctx context.Context, location domain.GeoPoint, radiusMeters int64, statuses []domain.IssueStatus, filters PublicIssueFilters) (PublicIssueStats, error)
 	ListCitizenNearby(ctx context.Context, location domain.GeoPoint, radiusMeters int64, userID string, publicStatuses []domain.IssueStatus, limit int64) ([]*domain.Issue, error)
 	ListAuthorityByDepartment(ctx context.Context, departmentID, authorityID string, statuses []domain.IssueStatus, limit int64) ([]*domain.Issue, error)
 	ListPending(ctx context.Context, departmentID string, limit int64) ([]*domain.Issue, error)
@@ -28,4 +29,18 @@ type IssueRepository interface {
 	AddSupporter(ctx context.Context, id primitive.ObjectID, userID string, allowedStatuses []domain.IssueStatus) (bool, error)
 	MarkMerged(ctx context.Context, id, canonicalID primitive.ObjectID) error
 	UpdatePriorityScore(ctx context.Context, id primitive.ObjectID, score float64, updatedAt time.Time) error
+}
+
+type PublicIssueFilters struct {
+	Severities []string
+	Categories []string
+	DateFrom   *time.Time
+	DateTo     *time.Time
+}
+
+type PublicIssueStats struct {
+	Total            int64
+	PendingApprovals int64
+	InProgress       int64
+	Resolved         int64
 }
