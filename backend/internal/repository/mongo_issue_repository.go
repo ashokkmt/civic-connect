@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"civic/internal/domain"
@@ -307,6 +308,8 @@ func (r *MongoIssueRepository) ApproveIssue(ctx context.Context, id primitive.Ob
 			"moderation.reviewedByHeadId":  adminID,
 			"moderation.reviewedAt":        reviewedAt,
 			"authority.assignedToWorkerId": workerID,
+			"lifecycle.approvedAt":         reviewedAt,
+			"lifecycle.assignedAt":         reviewedAt,
 			"updatedAt":                    reviewedAt,
 		},
 	}
@@ -388,6 +391,7 @@ func (r *MongoIssueRepository) StartIssue(ctx context.Context, id primitive.Obje
 			"status":              domain.StatusInProgress,
 			"statusUpdatedAt":     startedAt,
 			"authority.startedAt": startedAt,
+			"lifecycle.startedAt": startedAt,
 			"updatedAt":           startedAt,
 		},
 	}
@@ -416,6 +420,7 @@ func (r *MongoIssueRepository) ResolveIssue(ctx context.Context, id primitive.Ob
 			"statusUpdatedAt":           resolvedAt,
 			"authority.resolutionNotes": notes,
 			"authority.resolvedAt":      resolvedAt,
+			"lifecycle.resolvedAt":      resolvedAt,
 			"updatedAt":                 resolvedAt,
 		},
 	}
@@ -443,6 +448,7 @@ func (r *MongoIssueRepository) ConfirmResolution(ctx context.Context, id primiti
 			"statusUpdatedAt":                        confirmedAt,
 			"reporterConfirmation.confirmedAt":       confirmedAt,
 			"reporterConfirmation.confirmedByUserId": reporterID,
+			"lifecycle.confirmedAt":                  confirmedAt,
 			"updatedAt":                              confirmedAt,
 		},
 	}
@@ -466,10 +472,11 @@ func (r *MongoIssueRepository) CloseIssue(ctx context.Context, id primitive.Obje
 	}
 	update := bson.M{
 		"$set": bson.M{
-			"status":          domain.StatusClosed,
-			"statusUpdatedAt": closedAt,
-			"closedAt":        closedAt,
-			"updatedAt":       closedAt,
+			"status":             domain.StatusClosed,
+			"statusUpdatedAt":    closedAt,
+			"closedAt":           closedAt,
+			"lifecycle.closedAt": closedAt,
+			"updatedAt":          closedAt,
 		},
 	}
 
@@ -534,6 +541,162 @@ func (r *MongoIssueRepository) UpdatePriorityScore(ctx context.Context, id primi
 		return err
 	}
 	if res.ModifiedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *MongoIssueRepository) AdjustFlagsCount(ctx context.Context, id primitive.ObjectID, delta int, updatedAt time.Time) error {
+	if delta == 0 {
+		return nil
+	}
+	if delta > 0 {
+		res, err := r.col.UpdateOne(ctx, bson.M{"_id": id, "isMerged": bson.M{"$ne": true}}, bson.M{
+			"$inc": bson.M{"flagsCount": delta},
+			"$set": bson.M{"updatedAt": updatedAt},
+		})
+		if err != nil {
+			return err
+		}
+		if res.MatchedCount == 0 {
+			return ErrNotFound
+		}
+		return nil
+	}
+
+	res, err := r.col.UpdateOne(ctx, bson.M{"_id": id, "isMerged": bson.M{"$ne": true}}, bson.M{
+		"$inc": bson.M{"flagsCount": delta},
+		"$set": bson.M{"updatedAt": updatedAt},
+	})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	_, _ = r.col.UpdateOne(ctx, bson.M{"_id": id, "flagsCount": bson.M{"$lt": 0}}, bson.M{"$set": bson.M{"flagsCount": 0}})
+	return nil
+}
+
+func (r *MongoIssueRepository) ListFlagged(ctx context.Context, limit int64) ([]*domain.Issue, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	cur, err := r.col.Find(ctx, bson.M{
+		"isMerged":   bson.M{"$ne": true},
+		"flagsCount": bson.M{"$gt": 0},
+	}, options.Find().SetLimit(limit).SetSort(bson.D{{Key: "flagsCount", Value: -1}, {Key: "updatedAt", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	var out []*domain.Issue
+	for cur.Next(ctx) {
+		var issue domain.Issue
+		if err := cur.Decode(&issue); err != nil {
+			return nil, err
+		}
+		out = append(out, &issue)
+	}
+	if err := cur.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (r *MongoIssueRepository) ListEscalated(ctx context.Context, departmentID string, limit int64) ([]*domain.Issue, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	filter := bson.M{
+		"isMerged":        bson.M{"$ne": true},
+		"slaViolation":    true,
+		"status":          bson.M{"$ne": domain.StatusClosed},
+		"escalationLevel": bson.M{"$gt": 0},
+	}
+	if strings.TrimSpace(departmentID) != "" {
+		filter["departmentId"] = departmentID
+	}
+	cur, err := r.col.Find(ctx, filter, options.Find().SetLimit(limit).SetSort(bson.D{{Key: "escalationLevel", Value: -1}, {Key: "escalatedAt", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	var out []*domain.Issue
+	for cur.Next(ctx) {
+		var issue domain.Issue
+		if err := cur.Decode(&issue); err != nil {
+			return nil, err
+		}
+		out = append(out, &issue)
+	}
+	if err := cur.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (r *MongoIssueRepository) UpdateEscalation(ctx context.Context, id primitive.ObjectID, violation bool, level int, stage string, escalatedAt *time.Time, updatedAt time.Time) error {
+	set := bson.M{
+		"slaViolation":    violation,
+		"escalationLevel": level,
+		"slaStage":        stage,
+		"updatedAt":       updatedAt,
+	}
+	if escalatedAt != nil {
+		set["escalatedAt"] = *escalatedAt
+	} else {
+		set["escalatedAt"] = nil
+	}
+
+	res, err := r.col.UpdateOne(ctx, bson.M{"_id": id, "isMerged": bson.M{"$ne": true}}, bson.M{"$set": set})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *MongoIssueRepository) ResolveEscalation(ctx context.Context, id primitive.ObjectID, updatedAt time.Time) error {
+	res, err := r.col.UpdateOne(ctx, bson.M{"_id": id, "isMerged": bson.M{"$ne": true}}, bson.M{
+		"$set": bson.M{
+			"slaViolation":    false,
+			"escalationLevel": 0,
+			"slaStage":        "",
+			"escalatedAt":     nil,
+			"updatedAt":       updatedAt,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *MongoIssueRepository) ReassignWorker(ctx context.Context, id primitive.ObjectID, departmentID, workerID string, updatedAt time.Time) error {
+	res, err := r.col.UpdateOne(ctx, bson.M{
+		"_id":          id,
+		"departmentId": departmentID,
+		"status":       bson.M{"$in": []domain.IssueStatus{domain.StatusAssigned, domain.StatusInProgress}},
+		"slaViolation": true,
+		"isMerged":     bson.M{"$ne": true},
+	}, bson.M{
+		"$set": bson.M{
+			"authority.assignedToWorkerId": workerID,
+			"updatedAt":                    updatedAt,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
 		return ErrNotFound
 	}
 	return nil

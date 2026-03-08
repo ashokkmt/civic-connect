@@ -20,6 +20,11 @@ type Config struct {
 	PriorityDaysOpenWeight  float64
 	PrioritySeverityWeight  float64
 	PrioritySlaWeight       float64
+	SLAApprovalHours        int
+	SLAStartHours           int
+	SLAResolveHours         int
+	SLAConfirmHours         int
+	SLACloseHours           int
 }
 
 func Load() (Config, error) {
@@ -36,6 +41,11 @@ func Load() (Config, error) {
 		PriorityDaysOpenWeight:  getEnvFloat("PRIORITY_DAYS_OPEN_WEIGHT", 1),
 		PrioritySeverityWeight:  getEnvFloat("PRIORITY_SEVERITY_WEIGHT", 1),
 		PrioritySlaWeight:       getEnvFloat("PRIORITY_SLA_VIOLATION_WEIGHT", 1),
+		SLAApprovalHours:        getEnvInt("SLA_APPROVAL_HOURS", 48),
+		SLAStartHours:           getEnvInt("SLA_START_HOURS", 24),
+		SLAResolveHours:         getEnvInt("SLA_RESOLVE_HOURS", 72),
+		SLAConfirmHours:         getEnvInt("SLA_CONFIRM_HOURS", 72),
+		SLACloseHours:           getEnvInt("SLA_CLOSE_HOURS", 72),
 	}
 
 	if strings.TrimSpace(cfg.MongoURI) == "" {

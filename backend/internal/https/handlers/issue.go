@@ -18,6 +18,11 @@ import (
 
 type IssueHandler struct {
 	Issues *service.IssueService
+	Flags  *service.FlagService
+}
+
+type createFlagRequest struct {
+	Reason string `json:"reason"`
 }
 
 type createIssueRequest struct {
@@ -384,6 +389,38 @@ func (h IssueHandler) ConfirmResolution(w http.ResponseWriter, r *http.Request) 
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue, principal.UserID)})
 }
 
+func (h IssueHandler) Flag(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+	if h.Flags == nil {
+		response.WriteError(w, r, errx.New("NOT_IMPLEMENTED", "flagging is not configured", http.StatusNotImplemented))
+		return
+	}
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+		return
+	}
+	id, err := parseIDFromPathWithSuffix(r.URL.Path, "/api/v1/citizen/issues/", "/flags")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+	var req createFlagRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, r, errx.New("INVALID_INPUT", "invalid request body", http.StatusBadRequest))
+		return
+	}
+	flag, err := h.Flags.Create(r.Context(), id, principal.UserID, req.Reason)
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+	response.WriteJSON(w, http.StatusCreated, map[string]interface{}{"flag": flag})
+}
+
 func (h IssueHandler) CitizenIssueRoutes(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(r.URL.Path, "/support") {
 		h.Support(w, r)
@@ -391,6 +428,10 @@ func (h IssueHandler) CitizenIssueRoutes(w http.ResponseWriter, r *http.Request)
 	}
 	if strings.HasSuffix(r.URL.Path, "/confirm-resolution") {
 		h.ConfirmResolution(w, r)
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, "/flags") {
+		h.Flag(w, r)
 		return
 	}
 	h.GetCitizen(w, r)

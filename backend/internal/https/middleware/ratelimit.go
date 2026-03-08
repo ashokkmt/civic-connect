@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -12,6 +13,24 @@ import (
 type rateEntry struct {
 	count int
 	reset time.Time
+}
+
+func (rl *RateLimiter) MiddlewareForMethods(keyFunc func(*http.Request) string, methods ...string) func(http.Handler) http.Handler {
+	allowed := map[string]struct{}{}
+	for _, method := range methods {
+		allowed[strings.ToUpper(strings.TrimSpace(method))] = struct{}{}
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if len(allowed) > 0 {
+				if _, ok := allowed[strings.ToUpper(r.Method)]; !ok {
+					next.ServeHTTP(w, r)
+					return
+				}
+			}
+			rl.Middleware(keyFunc)(next).ServeHTTP(w, r)
+		})
+	}
 }
 
 type RateLimiter struct {

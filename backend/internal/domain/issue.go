@@ -45,6 +45,10 @@ type Issue struct {
 	PriorityScore     float64              `bson:"priorityScore,omitempty" json:"priorityScore,omitempty"`
 	PriorityUpdatedAt *time.Time           `bson:"priorityUpdatedAt,omitempty" json:"priorityUpdatedAt,omitempty"`
 	SlaViolation      bool                 `bson:"slaViolation,omitempty" json:"slaViolation,omitempty"`
+	EscalationLevel   int                  `bson:"escalationLevel,omitempty" json:"escalationLevel,omitempty"`
+	SlaStage          string               `bson:"slaStage,omitempty" json:"slaStage,omitempty"`
+	EscalatedAt       *time.Time           `bson:"escalatedAt,omitempty" json:"escalatedAt,omitempty"`
+	Lifecycle         LifecycleTimestamps  `bson:"lifecycle,omitempty" json:"lifecycle,omitempty"`
 	FlagsCount        int                  `bson:"flagsCount,omitempty" json:"flagsCount,omitempty"`
 	IsHidden          bool                 `bson:"isHidden,omitempty" json:"isHidden,omitempty"`
 	IsMerged          bool                 `bson:"isMerged,omitempty" json:"isMerged,omitempty"`
@@ -78,6 +82,15 @@ type ExifInfo struct {
 	Flagged        bool       `bson:"flagged,omitempty" json:"flagged,omitempty"`
 }
 
+type LifecycleTimestamps struct {
+	ApprovedAt  *time.Time `bson:"approvedAt,omitempty" json:"approvedAt,omitempty"`
+	AssignedAt  *time.Time `bson:"assignedAt,omitempty" json:"assignedAt,omitempty"`
+	StartedAt   *time.Time `bson:"startedAt,omitempty" json:"startedAt,omitempty"`
+	ResolvedAt  *time.Time `bson:"resolvedAt,omitempty" json:"resolvedAt,omitempty"`
+	ConfirmedAt *time.Time `bson:"confirmedAt,omitempty" json:"confirmedAt,omitempty"`
+	ClosedAt    *time.Time `bson:"closedAt,omitempty" json:"closedAt,omitempty"`
+}
+
 type IssueFlag struct {
 	ID         primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 	IssueID    primitive.ObjectID `bson:"issueId" json:"issueId"`
@@ -85,6 +98,9 @@ type IssueFlag struct {
 	Reason     string             `bson:"reason" json:"reason"`
 	CreatedAt  time.Time          `bson:"createdAt" json:"createdAt"`
 	Resolved   bool               `bson:"resolved" json:"resolved"`
+	ResolvedAt *time.Time         `bson:"resolvedAt,omitempty" json:"resolvedAt,omitempty"`
+	ResolvedBy string             `bson:"resolvedBy,omitempty" json:"resolvedBy,omitempty"`
+	Resolution string             `bson:"resolutionNotes,omitempty" json:"resolutionNotes,omitempty"`
 }
 
 type IssueEvent struct {

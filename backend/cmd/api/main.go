@@ -71,6 +71,10 @@ func main() {
 	if err := issueRepo.EnsureIndexes(ctx); err != nil {
 		log.Fatalf("mongo index error: %v", err)
 	}
+	flagRepo := repository.NewMongoFlagRepository(db)
+	if err := flagRepo.EnsureIndexes(ctx); err != nil {
+		log.Fatalf("mongo flag index error: %v", err)
+	}
 
 	deptRepo := repository.NewMongoDepartmentRepository(db)
 	if err := deptRepo.EnsureIndexes(ctx); err != nil {
@@ -78,7 +82,6 @@ func main() {
 	}
 	deptService := service.NewDepartmentService(deptRepo)
 	adminProvisioning := service.NewAdminProvisioningService(userRepo, deptRepo)
-	adminHandler := handlers.AdminHandler{Departments: deptService, Provision: adminProvisioning}
 	headProvisioning := service.NewHeadProvisioningService(userRepo, deptRepo)
 	headHandler := handlers.HeadHandler{Provision: headProvisioning}
 
@@ -90,11 +93,28 @@ func main() {
 	}
 
 	issueService := service.NewIssueService(issueRepo, priorityWeights)
-	issueHandler := handlers.IssueHandler{Issues: issueService}
-	moderationService := service.NewModerationService(issueRepo, userRepo, priorityWeights)
+	flagService := service.NewFlagService(flagRepo, issueRepo)
+	issueHandler := handlers.IssueHandler{Issues: issueService, Flags: flagService}
+	slaService := service.NewSLAService(issueRepo, service.SLAWindows{
+		Approval: time.Duration(cfg.SLAApprovalHours) * time.Hour,
+		Start:    time.Duration(cfg.SLAStartHours) * time.Hour,
+		Resolve:  time.Duration(cfg.SLAResolveHours) * time.Hour,
+		Confirm:  time.Duration(cfg.SLAConfirmHours) * time.Hour,
+		Close:    time.Duration(cfg.SLACloseHours) * time.Hour,
+	})
+	moderationService := service.NewModerationService(issueRepo, userRepo, priorityWeights, slaService)
 	moderationHandler := handlers.ModerationHandler{Moderation: moderationService}
 	authorityService := service.NewAuthorityService(issueRepo, priorityWeights)
 	authorityHandler := handlers.AuthorityHandler{Authority: authorityService}
+	userAdminService := service.NewUserAdminService(userRepo)
+	adminHandler := handlers.AdminHandler{
+		Departments: deptService,
+		Provision:   adminProvisioning,
+		Flags:       flagService,
+		Users:       userAdminService,
+		Issues:      issueRepo,
+		SLA:         slaService,
+	}
 
 	router := https.NewRouter(https.RouterConfig{
 		RequestIDHeader: cfg.RequestIDHeader,

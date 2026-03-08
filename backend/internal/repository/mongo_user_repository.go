@@ -148,6 +148,25 @@ func (r *MongoUserRepository) UpdatePassword(ctx context.Context, id, passwordHa
 	return nil
 }
 
+func (r *MongoUserRepository) SetBlocked(ctx context.Context, id string, blocked bool) error {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return ErrNotFound
+	}
+
+	res, err := r.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{
+		"blocked":   blocked,
+		"updatedAt": time.Now().UTC(),
+	}})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *MongoUserRepository) DeleteByID(ctx context.Context, id string) error {
 	id = strings.TrimSpace(id)
 	if id == "" {

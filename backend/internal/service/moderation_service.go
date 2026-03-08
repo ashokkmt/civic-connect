@@ -19,10 +19,11 @@ type ModerationService struct {
 	issues  repository.IssueRepository
 	users   repository.UserRepository
 	weights priority.Weights
+	sla     *SLAService
 }
 
-func NewModerationService(issues repository.IssueRepository, users repository.UserRepository, weights priority.Weights) *ModerationService {
-	return &ModerationService{issues: issues, users: users, weights: weights}
+func NewModerationService(issues repository.IssueRepository, users repository.UserRepository, weights priority.Weights, sla *SLAService) *ModerationService {
+	return &ModerationService{issues: issues, users: users, weights: weights, sla: sla}
 }
 
 func (s *ModerationService) ListPending(ctx context.Context, departmentID string, limit int64) ([]*domain.Issue, error) {
@@ -36,6 +37,27 @@ func (s *ModerationService) ListPending(ctx context.Context, departmentID string
 	issues, err := s.issues.ListPending(ctx, departmentID, limit)
 	if err != nil {
 		return nil, errx.New("INTERNAL_ERROR", "could not list pending issues", 500)
+	}
+	if s.sla != nil {
+		s.sla.RefreshBatch(ctx, issues, time.Now())
+	}
+	return issues, nil
+}
+
+func (s *ModerationService) ListEscalated(ctx context.Context, departmentID string, limit int64) ([]*domain.Issue, error) {
+	departmentID = strings.TrimSpace(departmentID)
+	if departmentID == "" {
+		return nil, errx.New("INVALID_INPUT", "departmentId is required", 400)
+	}
+	if limit <= 0 {
+		limit = pendingDefaultLimit
+	}
+	issues, err := s.issues.ListEscalated(ctx, departmentID, limit)
+	if err != nil {
+		return nil, errx.New("INTERNAL_ERROR", "could not list escalations", 500)
+	}
+	if s.sla != nil {
+		s.sla.RefreshBatch(ctx, issues, time.Now())
 	}
 	return issues, nil
 }
@@ -162,6 +184,43 @@ func (s *ModerationService) Close(ctx context.Context, id primitive.ObjectID, he
 	}
 	if updated.Status != domain.StatusClosed {
 		return nil, errx.New("INVALID_TRANSITION", "issue not closed", 409)
+	}
+	return updated, nil
+}
+
+func (s *ModerationService) ReassignEscalated(ctx context.Context, id primitive.ObjectID, headID, departmentID, workerID string) (*domain.Issue, error) {
+	if strings.TrimSpace(headID) == "" {
+		return nil, errx.New("UNAUTHORIZED", "missing authority head", 401)
+	}
+	if strings.TrimSpace(departmentID) == "" {
+		return nil, errx.New("INVALID_INPUT", "departmentId is required", 400)
+	}
+	if strings.TrimSpace(workerID) == "" {
+		return nil, errx.New("INVALID_INPUT", "workerId is required", 400)
+	}
+
+	worker, err := s.users.GetByID(ctx, workerID)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			return nil, errx.New("INVALID_INPUT", "invalid workerId", 400)
+		}
+		return nil, errx.New("INTERNAL_ERROR", "could not validate worker", 500)
+	}
+	if worker.Blocked || worker.Role != domain.RoleAuthority || worker.AuthoritySubRole != domain.AuthorityWorker || worker.DepartmentID != departmentID {
+		return nil, errx.New("INVALID_INPUT", "invalid workerId", 400)
+	}
+
+	now := time.Now()
+	if err := s.issues.ReassignWorker(ctx, id, departmentID, workerID, now); err != nil {
+		if err == repository.ErrNotFound {
+			return nil, errx.New("NOT_FOUND", "issue not found or not eligible for reassignment", 404)
+		}
+		return nil, errx.New("INTERNAL_ERROR", "could not reassign issue", 500)
+	}
+
+	updated, err := s.issues.GetByID(ctx, id)
+	if err != nil {
+		return nil, errx.New("NOT_FOUND", "issue not found", 404)
 	}
 	return updated, nil
 }

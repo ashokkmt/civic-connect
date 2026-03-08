@@ -32,6 +32,13 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	}
 	adminRegLimiter := middleware.NewRateLimiter(5, time.Minute)
 	adminRegKey := loginKey
+	submissionLimiter := middleware.NewRateLimiter(20, time.Minute)
+	submissionKey := func(r *http.Request) string {
+		if p, ok := middleware.GetPrincipal(r.Context()); ok && strings.TrimSpace(p.UserID) != "" {
+			return "user:" + p.UserID
+		}
+		return "ip:" + strings.Split(r.RemoteAddr, ":")[0]
+	}
 
 	mux.Handle("/api/v1/auth/register", http.HandlerFunc(cfg.AuthHandler.Register))
 	mux.Handle("/api/v1/auth/register-admin", adminRegLimiter.Middleware(adminRegKey)(http.HandlerFunc(cfg.AuthHandler.RegisterAdmin)))
@@ -54,13 +61,19 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	mux.Handle("/api/v1/issues", http.HandlerFunc(cfg.IssueHandler.ListPublic))
 	mux.Handle("/api/v1/issues/stats", http.HandlerFunc(cfg.IssueHandler.PublicStats))
 	mux.Handle("/api/v1/issues/", http.HandlerFunc(cfg.IssueHandler.GetPublic))
-	mux.Handle("/api/v1/citizen/issues", citizenOnly(http.HandlerFunc(cfg.IssueHandler.CitizenIssues)))
-	mux.Handle("/api/v1/citizen/issues/", citizenOnly(http.HandlerFunc(cfg.IssueHandler.CitizenIssueRoutes)))
+	mux.Handle("/api/v1/citizen/issues", citizenOnly(submissionLimiter.MiddlewareForMethods(submissionKey, http.MethodPost)(http.HandlerFunc(cfg.IssueHandler.CitizenIssues))))
+	mux.Handle("/api/v1/citizen/issues/", citizenOnly(submissionLimiter.MiddlewareForMethods(submissionKey, http.MethodPost)(http.HandlerFunc(cfg.IssueHandler.CitizenIssueRoutes))))
 
 	mux.Handle("/api/v1/head/issues/pending", headOnly(http.HandlerFunc(cfg.Moderation.ListPending)))
+	mux.Handle("/api/v1/head/issues/escalations", headOnly(http.HandlerFunc(cfg.Moderation.ListEscalations)))
 	mux.Handle("/api/v1/head/issues/", headOnly(http.HandlerFunc(cfg.Moderation.IssueRoutes)))
 	mux.Handle("/api/v1/admin/departments", adminOnly(http.HandlerFunc(cfg.AdminHandler.CreateDepartment)))
 	mux.Handle("/api/v1/admin/authorities", adminOnly(http.HandlerFunc(cfg.AdminHandler.RegisterAuthority)))
+	mux.Handle("/api/v1/admin/issues/flagged", adminOnly(http.HandlerFunc(cfg.AdminHandler.ListFlagged)))
+	mux.Handle("/api/v1/admin/issues/escalations", adminOnly(http.HandlerFunc(cfg.AdminHandler.ListEscalations)))
+	mux.Handle("/api/v1/admin/issues/", adminOnly(http.HandlerFunc(cfg.AdminHandler.IssueRoutes)))
+	mux.Handle("/api/v1/admin/flags/", adminOnly(http.HandlerFunc(cfg.AdminHandler.FlagRoutes)))
+	mux.Handle("/api/v1/admin/users/", adminOnly(http.HandlerFunc(cfg.AdminHandler.UserRoutes)))
 	mux.Handle("/api/v1/head/authorities", headOnly(http.HandlerFunc(cfg.HeadHandler.RegisterWorker)))
 
 	mux.Handle("/api/v1/authority/issues", authorityOnly(http.HandlerFunc(cfg.Authority.List)))

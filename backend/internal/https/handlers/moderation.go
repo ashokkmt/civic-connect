@@ -27,6 +27,10 @@ type rejectIssueRequest struct {
 	Reason string `json:"reason"`
 }
 
+type reassignIssueRequest struct {
+	WorkerID string `json:"workerId"`
+}
+
 func (h ModerationHandler) ListPending(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
@@ -50,6 +54,42 @@ func (h ModerationHandler) ListPending(w http.ResponseWriter, r *http.Request) {
 	}
 
 	issues, err := h.Moderation.ListPending(r.Context(), principal.DepartmentID, limit)
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	resp := make([]issuePublicDTO, 0, len(issues))
+	for _, issue := range issues {
+		resp = append(resp, toIssuePublicDTO(issue, principal.UserID))
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"items": resp})
+}
+
+func (h ModerationHandler) ListEscalations(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+
+	limit := int64(0)
+	if val := strings.TrimSpace(r.URL.Query().Get("limit")); val != "" {
+		parsed, err := strconv.ParseInt(val, 10, 64)
+		if err != nil {
+			response.WriteError(w, r, errx.New("INVALID_INPUT", "invalid limit", http.StatusBadRequest))
+			return
+		}
+		limit = parsed
+	}
+
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+		return
+	}
+
+	issues, err := h.Moderation.ListEscalated(r.Context(), principal.DepartmentID, limit)
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
@@ -156,6 +196,39 @@ func (h ModerationHandler) Close(w http.ResponseWriter, r *http.Request) {
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": issue})
 }
 
+func (h ModerationHandler) Reassign(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+		return
+	}
+
+	id, err := parseHeadIDFromPathWithSuffix(r.URL.Path, "/api/v1/head/issues/", "/reassign")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	var req reassignIssueRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, r, errx.New("INVALID_INPUT", "invalid request body", http.StatusBadRequest))
+		return
+	}
+
+	issue, err := h.Moderation.ReassignEscalated(r.Context(), id, principal.UserID, principal.DepartmentID, req.WorkerID)
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": issue})
+}
+
 func (h ModerationHandler) IssueRoutes(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(r.URL.Path, "/approve") {
 		h.Approve(w, r)
@@ -167,6 +240,10 @@ func (h ModerationHandler) IssueRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.HasSuffix(r.URL.Path, "/close") {
 		h.Close(w, r)
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, "/reassign") {
+		h.Reassign(w, r)
 		return
 	}
 	response.WriteError(w, r, errx.New("NOT_FOUND", "not found", http.StatusNotFound))

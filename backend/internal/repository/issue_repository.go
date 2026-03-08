@@ -29,6 +29,12 @@ type IssueRepository interface {
 	AddSupporter(ctx context.Context, id primitive.ObjectID, userID string, allowedStatuses []domain.IssueStatus) (bool, error)
 	MarkMerged(ctx context.Context, id, canonicalID primitive.ObjectID) error
 	UpdatePriorityScore(ctx context.Context, id primitive.ObjectID, score float64, updatedAt time.Time) error
+	AdjustFlagsCount(ctx context.Context, id primitive.ObjectID, delta int, updatedAt time.Time) error
+	ListFlagged(ctx context.Context, limit int64) ([]*domain.Issue, error)
+	ListEscalated(ctx context.Context, departmentID string, limit int64) ([]*domain.Issue, error)
+	UpdateEscalation(ctx context.Context, id primitive.ObjectID, violation bool, level int, stage string, escalatedAt *time.Time, updatedAt time.Time) error
+	ResolveEscalation(ctx context.Context, id primitive.ObjectID, updatedAt time.Time) error
+	ReassignWorker(ctx context.Context, id primitive.ObjectID, departmentID, workerID string, updatedAt time.Time) error
 }
 
 type PublicIssueFilters struct {
