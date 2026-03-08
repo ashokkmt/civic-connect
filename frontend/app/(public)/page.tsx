@@ -5,6 +5,7 @@ import { HeroSection } from "@/components/home/HeroSection";
 import { MetricsSection } from "@/components/home/MetricsSection";
 import { RecentIssuesSlider } from "@/components/home/RecentIssuesSlider";
 import { HowItWorks } from "@/components/home/HowItWorks";
+import { LocationSetupCard } from "@/components/location/LocationSetupCard";
 import { useLocation } from "@/lib/location/context";
 import { isValidLocation } from "@/lib/location/validation";
 
@@ -133,6 +134,12 @@ export default function HomePage() {
   return (
     <div className="relative">
       <HeroSection />
+      <div className="mx-auto w-full max-w-6xl px-6 py-4 lg:px-8">
+        <LocationSetupCard
+          title="Set your civic location"
+          description="Use your device location first, or refine it using map click and optional place search."
+        />
+      </div>
       <MetricsSection stats={stats} locationReady={locationReady} loading={loading} error={error} />
       <RecentIssuesSlider
         issues={recentIssues}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useCallback, useEffect, useMemo, useState } from "react";
+import React, { createContext, useCallback, useMemo, useState } from "react";
 import type { Location } from "@/lib/location/types";
 import { clearStoredLocation, readStoredLocation, writeStoredLocation } from "@/lib/location/storage";
 import { isValidLocation } from "@/lib/location/validation";
@@ -14,14 +14,7 @@ type LocationContextValue = {
 const LocationContext = createContext<LocationContextValue | undefined>(undefined);
 
 export function LocationProvider({ children }: { children: React.ReactNode }) {
-  const [location, setLocationState] = useState<Location | null>(null);
-
-  useEffect(() => {
-    const stored = readStoredLocation();
-    if (stored) {
-      setLocationState(stored);
-    }
-  }, []);
+  const [location, setLocationState] = useState<Location | null>(() => readStoredLocation());
 
   const setLocation = useCallback((next: Location) => {
     if (!isValidLocation(next)) {

@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { StatusBadge } from "@/components/issues/StatusBadge";
+import { CitizenIssueActions } from "@/components/issues/CitizenIssueActions";
 
 type IssuePublic = {
   id: string;
@@ -10,6 +11,9 @@ type IssuePublic = {
   supporterCount?: number;
   createdAt?: string;
   departmentId?: string;
+  imageUrls?: string[];
+  isReporter?: boolean;
+  isSupporter?: boolean;
 };
 
 type IssueResponse = {
@@ -81,9 +85,28 @@ export default async function CitizenIssueDetail({
           {issue.departmentId ? (
             <p className="text-sm text-zinc-600 dark:text-zinc-300">Department: {issue.departmentId}</p>
           ) : null}
+
+          <CitizenIssueActions
+            issueId={issue.id}
+            status={issue.status}
+            isReporter={Boolean(issue.isReporter)}
+            isSupporter={Boolean(issue.isSupporter)}
+          />
         </div>
-        <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--surface-muted)] p-4 text-xs text-zinc-500 dark:text-zinc-400">
-          Image gallery will appear here when image URLs are available.
+        <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Images</p>
+          {issue.imageUrls && issue.imageUrls.length > 0 ? (
+            <div className="grid grid-cols-2 gap-2">
+              {issue.imageUrls.map((url) => (
+                <a key={url} href={url} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-lg border border-[var(--border)]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="Issue" className="h-24 w-full object-cover" loading="lazy" />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">No uploaded images available.</p>
+          )}
         </div>
       </div>
     </section>

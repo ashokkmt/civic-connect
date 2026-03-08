@@ -9,6 +9,7 @@ import { SelectField } from "@/components/forms/SelectField";
 import { TextArea } from "@/components/forms/TextArea";
 import { TextField } from "@/components/forms/TextField";
 import { EmptyState } from "@/components/feedback/EmptyState";
+import { ImageUploader } from "@/components/upload/ImageUploader";
 import { useLocation } from "@/lib/location/context";
 import { isValidLocation } from "@/lib/location/validation";
 import { departmentOptions } from "@/lib/config/departments";
@@ -29,7 +30,10 @@ export default function CitizenCreateIssuePage() {
   const { location } = useLocation();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [departmentId, setDepartmentId] = useState(departmentOptions[0]?.id ?? "");
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -56,6 +60,21 @@ export default function CitizenCreateIssuePage() {
       return;
     }
 
+    if (isUploading) {
+      setError("Wait for image uploads to complete before submitting.");
+      return;
+    }
+
+    if (imageUrls.length === 0) {
+      setError("Upload at least one image before submitting.");
+      return;
+    }
+
+    if (uploadError) {
+      setError(uploadError);
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -65,7 +84,7 @@ export default function CitizenCreateIssuePage() {
         body: JSON.stringify({
           title: title.trim(),
           description: description.trim(),
-          imageUrls: [],
+          imageUrls,
           departmentId,
           location: { lat: location.lat, lng: location.lng },
         }),
@@ -146,17 +165,30 @@ export default function CitizenCreateIssuePage() {
           required
         />
 
+        <div className="space-y-2">
+          <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Issue images</p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            Upload at least one image. Submission is disabled while uploads are in progress.
+          </p>
+          <ImageUploader
+            value={imageUrls}
+            onChange={setImageUrls}
+            onUploadingChange={setIsUploading}
+            onError={setUploadError}
+          />
+        </div>
+
         {successMessage ? (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-900/20 dark:text-emerald-200">
             {successMessage}
           </div>
         ) : null}
 
-        <FormError message={error} />
+        <FormError message={error ?? uploadError} />
 
         <FormActions
           submitLabel="Submit issue"
-          isSubmitting={submitting}
+          isSubmitting={submitting || isUploading}
           secondaryAction={<Link href="/dashboard/citizen/issues">Back to issues</Link>}
         />
       </form>

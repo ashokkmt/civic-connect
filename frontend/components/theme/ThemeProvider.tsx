@@ -24,14 +24,17 @@ function applyTheme(next: Theme) {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("light");
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === "undefined") {
+      return "light";
+    }
+    const stored = window.localStorage.getItem(STORAGE_KEY) as Theme | null;
+    return stored ?? "light";
+  });
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY) as Theme | null;
-    const initial = stored ?? "light";
-    setThemeState(initial);
-    applyTheme(initial);
-  }, []);
+    applyTheme(theme);
+  }, [theme]);
 
   const setTheme = useCallback((next: Theme) => {
     setThemeState(next);

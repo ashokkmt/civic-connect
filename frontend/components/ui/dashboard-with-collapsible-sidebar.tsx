@@ -404,12 +404,15 @@ const ExampleContent = ({ isDark, setIsDark }: ExampleContentProps) => {
           <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-gray-900">
             <h3 className="mb-4 text-lg font-semibold text-gray-900 dark:text-gray-100">Top Products</h3>
             <div className="space-y-3">
-              {["iPhone 15 Pro", "MacBook Air M2", "AirPods Pro", "iPad Air"].map((product, i) => (
-                <div key={i} className="flex items-center justify-between py-2">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">{product}</span>
-                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                    ${Math.floor(Math.random() * 1000 + 500)}
-                  </span>
+              {[
+                { name: "iPhone 15 Pro", revenue: "$1,340" },
+                { name: "MacBook Air M2", revenue: "$1,220" },
+                { name: "AirPods Pro", revenue: "$980" },
+                { name: "iPad Air", revenue: "$860" },
+              ].map((product) => (
+                <div key={product.name} className="flex items-center justify-between py-2">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">{product.name}</span>
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{product.revenue}</span>
                 </div>
               ))}
             </div>

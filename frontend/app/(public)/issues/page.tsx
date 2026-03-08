@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { IssueCard } from "@/components/issues/IssueCard";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
+import { LocationSetupCard } from "@/components/location/LocationSetupCard";
 import { useLocation } from "@/lib/location/context";
 import { isValidLocation } from "@/lib/location/validation";
 
@@ -299,9 +300,9 @@ export default function IssuesPage() {
 
         <section className="space-y-4">
           {!locationReady ? (
-            <EmptyState
+            <LocationSetupCard
               title="Location required"
-              description="Set your location on the home page to view nearby issues."
+              description="Set your location to explore nearby public issues."
             />
           ) : loading ? (
             <LoadingSkeleton label="Loading nearby issues" />
