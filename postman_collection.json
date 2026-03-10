@@ -1,0 +1,386 @@
+{
+  "info": {
+    "name": "CivicConnect API",
+    "_postman_id": "1b7f5b3f-6d7c-4d95-b4de-2e4e2b6f8a11",
+    "description": "Postman collection generated from implemented backend routes.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "token", "value": "" },
+    { "key": "issueId", "value": "" },
+    { "key": "flagId", "value": "" },
+    { "key": "userId", "value": "" },
+    { "key": "departmentId", "value": "" },
+    { "key": "workerId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Citizen",
+      "item": [
+        {
+          "name": "Register Citizen",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"citizen@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"citizen@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create or Merge Issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/citizen/issues",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Broken street light\",\n  \"description\": \"Street light not working\",\n  \"imageUrls\": [\"https://res.cloudinary.com/demo/image/upload/sample.jpg\"],\n  \"departmentId\": \"{{departmentId}}\",\n  \"location\": {\n    \"lat\": 28.6139,\n    \"lng\": 77.209\n  }\n}"
+            }
+          }
+        },
+        {
+          "name": "Support Issue",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/citizen/issues/{{issueId}}/support"
+          }
+        },
+        {
+          "name": "Confirm Resolution",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/citizen/issues/{{issueId}}/confirm-resolution"
+          }
+        },
+        {
+          "name": "Flag Issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/citizen/issues/{{issueId}}/flags",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Spam content\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Public Issues",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/v1/issues?lat=28.6139&lng=77.209&radiusMeters=2000&limit=20"
+          }
+        },
+        {
+          "name": "Upload Image",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/uploads/images",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "" },
+                { "key": "context", "value": "issue-report", "type": "text" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Worker",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"worker@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Authority Issues",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/authority/issues?limit=50"
+          }
+        },
+        {
+          "name": "Start Issue",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/authority/issues/{{issueId}}/start"
+          }
+        },
+        {
+          "name": "Resolve Issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/authority/issues/{{issueId}}/resolve",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resolutionNotes\": \"Repaired and tested\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Upload Image",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/uploads/images",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "file", "type": "file", "src": "" },
+                { "key": "context", "value": "worker-update", "type": "text" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Department Head",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"head@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Pending",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/head/issues/pending?limit=50"
+          }
+        },
+        {
+          "name": "Approve Issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/head/issues/{{issueId}}/approve",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"severity\": \"HIGH\",\n  \"workerId\": \"{{workerId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Reject Issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/head/issues/{{issueId}}/reject",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Insufficient evidence\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Close Issue",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/head/issues/{{issueId}}/close"
+          }
+        },
+        {
+          "name": "Reassign Escalated Issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/head/issues/{{issueId}}/reassign",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"workerId\": \"{{workerId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register Worker",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/head/authorities",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"newworker@example.com\",\n  \"password\": \"very-strong-password\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Register Admin",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/auth/register-admin",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"very-strong-password\",\n  \"adminSecret\": \"<ADMIN_REGISTRATION_SECRET>\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/v1/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"very-strong-password\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Create Department",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/departments",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Roads\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register Authority Head",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/authorities",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"head@example.com\",\n  \"password\": \"very-strong-password\",\n  \"departmentId\": \"{{departmentId}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "List Flagged Issues",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/admin/issues/flagged?limit=100"
+          }
+        },
+        {
+          "name": "List Escalations",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/admin/issues/escalations?limit=100"
+          }
+        },
+        {
+          "name": "Resolve Escalation",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/admin/issues/{{issueId}}/escalations/resolve"
+          }
+        },
+        {
+          "name": "Resolve Flag",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/flags/{{flagId}}/resolve",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resolution\": \"Reviewed and accepted\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Block User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/admin/users/{{userId}}/block"
+          }
+        },
+        {
+          "name": "Unblock User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/admin/users/{{userId}}/unblock"
+          }
+        }
+      ]
+    }
+  ]
+}

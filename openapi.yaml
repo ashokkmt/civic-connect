@@ -1,0 +1,882 @@
+openapi: 3.0.0
+info:
+  title: CivicConnect API
+  description: API specification generated from implemented Go backend routes.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    EnvelopeSuccess:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+        requestId:
+          type: string
+      required: [success]
+    EnvelopeError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          $ref: '#/components/schemas/ErrorBody'
+        requestId:
+          type: string
+      required: [success, error]
+    ErrorBody:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+      required: [code, message]
+    GeoPoint:
+      type: object
+      properties:
+        type:
+          type: string
+          example: Point
+        coordinates:
+          type: array
+          items:
+            type: number
+          minItems: 2
+          maxItems: 2
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [CITIZEN, ADMIN, AUTHORITY]
+        authoritySubRole:
+          type: string
+          enum: [HEAD, WORKER]
+        departmentId:
+          type: string
+        blocked:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    IssuePublic:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        imageUrls:
+          type: array
+          items:
+            type: string
+        location:
+          $ref: '#/components/schemas/GeoPoint'
+        status:
+          type: string
+          enum: [PENDING_APPROVAL, REJECTED, APPROVED, ASSIGNED, IN_PROGRESS, RESOLVED, AWAITING_HEAD_CLOSURE, CLOSED]
+        supporterCount:
+          type: integer
+        departmentId:
+          type: string
+        isReporter:
+          type: boolean
+        isSupporter:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    UploadedAsset:
+      type: object
+      properties:
+        id:
+          type: string
+        url:
+          type: string
+        width:
+          type: integer
+        height:
+          type: integer
+        format:
+          type: string
+    Department:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        key:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    AdminIssue:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        status:
+          type: string
+        departmentId:
+          type: string
+        flagsCount:
+          type: integer
+        slaViolation:
+          type: boolean
+        escalationLevel:
+          type: integer
+        slaStage:
+          type: string
+    IssueFlag:
+      type: object
+      properties:
+        id:
+          type: string
+        issueId:
+          type: string
+        reporterId:
+          type: string
+        reason:
+          type: string
+        resolved:
+          type: boolean
+        resolvedAt:
+          type: string
+          format: date-time
+        resolvedBy:
+          type: string
+        resolutionNotes:
+          type: string
+paths:
+  /healthz:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+  /api/v1/auth/register:
+    post:
+      summary: Register citizen
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required: [email, password]
+      responses:
+        '201':
+          description: Registered
+  /api/v1/auth/register-admin:
+    post:
+      summary: Register admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                adminSecret:
+                  type: string
+              required: [email, password, adminSecret]
+      responses:
+        '201':
+          description: Registered
+        '403':
+          description: Invalid secret / disabled
+  /api/v1/auth/login:
+    post:
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required: [email, password]
+      responses:
+        '200':
+          description: Logged in
+  /api/v1/me:
+    get:
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+    patch:
+      summary: Update current user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                oldPassword:
+                  type: string
+                newPassword:
+                  type: string
+      responses:
+        '200':
+          description: Updated user
+    delete:
+      summary: Delete current user
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password:
+                  type: string
+              required: [password]
+      responses:
+        '200':
+          description: Deleted
+  /api/v1/issues:
+    get:
+      summary: List public issues
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: radiusMeters
+          in: query
+          schema:
+            type: number
+        - name: limit
+          in: query
+          schema:
+            type: number
+        - name: offset
+          in: query
+          schema:
+            type: number
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Issue list
+  /api/v1/issues/stats:
+    get:
+      summary: Public issue statistics
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: radiusMeters
+          in: query
+          schema:
+            type: number
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: severity
+          in: query
+          schema:
+            type: string
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: dateFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: dateTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Stats
+  /api/v1/issues/{id}:
+    get:
+      summary: Public issue by id
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Issue detail
+        '404':
+          description: Not found
+  /api/v1/citizen/issues:
+    get:
+      summary: Citizen nearby issues
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: radiusMeters
+          in: query
+          schema:
+            type: number
+        - name: limit
+          in: query
+          schema:
+            type: number
+      responses:
+        '200':
+          description: Citizen issue list
+    post:
+      summary: Create or merge citizen issue
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                imageUrls:
+                  type: array
+                  items:
+                    type: string
+                departmentId:
+                  type: string
+                location:
+                  type: object
+                  properties:
+                    lat:
+                      type: number
+                    lng:
+                      type: number
+                  required: [lat, lng]
+              required: [title, description, imageUrls, departmentId, location]
+      responses:
+        '201':
+          description: Created
+        '200':
+          description: Merged
+  /api/v1/citizen/issues/{id}:
+    get:
+      summary: Citizen issue by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Citizen issue detail
+  /api/v1/citizen/issues/{id}/support:
+    post:
+      summary: Support issue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Support updated
+        '409':
+          description: Duplicate support
+  /api/v1/citizen/issues/{id}/confirm-resolution:
+    post:
+      summary: Confirm issue resolution
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Confirmed
+  /api/v1/citizen/issues/{id}/flags:
+    post:
+      summary: Create issue flag
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+              required: [reason]
+      responses:
+        '201':
+          description: Flag created
+  /api/v1/uploads/images:
+    post:
+      summary: Upload image
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+                context:
+                  type: string
+              required: [file]
+      responses:
+        '201':
+          description: Uploaded
+  /api/v1/head/issues/pending:
+    get:
+      summary: List pending issues for department head
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Pending issues
+  /api/v1/head/issues/escalations:
+    get:
+      summary: List escalations for department head
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Escalated issues
+  /api/v1/head/issues/{id}/approve:
+    post:
+      summary: Approve issue and assign worker
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                severity:
+                  type: string
+                workerId:
+                  type: string
+              required: [severity, workerId]
+      responses:
+        '200':
+          description: Approved
+  /api/v1/head/issues/{id}/reject:
+    post:
+      summary: Reject issue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+              required: [reason]
+      responses:
+        '200':
+          description: Rejected
+  /api/v1/head/issues/{id}/close:
+    post:
+      summary: Close issue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Closed
+  /api/v1/head/issues/{id}/reassign:
+    post:
+      summary: Reassign escalated issue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                workerId:
+                  type: string
+              required: [workerId]
+      responses:
+        '200':
+          description: Reassigned
+  /api/v1/head/authorities:
+    post:
+      summary: Register authority worker
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required: [email, password]
+      responses:
+        '201':
+          description: Worker created
+  /api/v1/authority/issues:
+    get:
+      summary: List authority issues
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Authority issues
+  /api/v1/authority/issues/{id}/assign:
+    post:
+      summary: Deprecated assign endpoint
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '403':
+          description: Forbidden (assignment now during approval)
+  /api/v1/authority/issues/{id}/start:
+    post:
+      summary: Start issue work
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Started
+  /api/v1/authority/issues/{id}/resolve:
+    post:
+      summary: Resolve issue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                resolutionNotes:
+                  type: string
+              required: [resolutionNotes]
+      responses:
+        '200':
+          description: Resolved
+  /api/v1/admin/departments:
+    post:
+      summary: Create department
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+              required: [name]
+      responses:
+        '201':
+          description: Department created
+  /api/v1/admin/authorities:
+    post:
+      summary: Register authority head
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+                departmentId:
+                  type: string
+              required: [email, password, departmentId]
+      responses:
+        '201':
+          description: Authority head created
+  /api/v1/admin/issues/flagged:
+    get:
+      summary: List flagged issues
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Flagged issues
+  /api/v1/admin/issues/escalations:
+    get:
+      summary: List escalated issues (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Escalated issues
+  /api/v1/admin/issues/{id}/escalations/resolve:
+    post:
+      summary: Resolve escalation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Escalation resolved
+  /api/v1/admin/flags/{flagId}/resolve:
+    post:
+      summary: Resolve flag
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: flagId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                resolution:
+                  type: string
+              required: [resolution]
+      responses:
+        '200':
+          description: Flag resolved
+  /api/v1/admin/users/{id}/block:
+    post:
+      summary: Block user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Blocked
+  /api/v1/admin/users/{id}/unblock:
+    post:
+      summary: Unblock user
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Unblocked
