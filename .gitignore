@@ -27,7 +27,8 @@ Thumbs.db
 *.log
 
 .github/
-docs/*.md
+docs/
+workflows/
 *plan.md
 frontend-requirement.md
 plan*

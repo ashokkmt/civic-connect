@@ -24,8 +24,11 @@ type RouterConfig struct {
 
 func NewRouter(cfg RouterConfig) http.Handler {
 	mux := http.NewServeMux()
+	docs := handlers.NewDocsHandler()
 
 	mux.Handle("/healthz", handlers.HealthHandler{AppName: "civic-connect"})
+	mux.Handle("/openapi.yaml", http.HandlerFunc(docs.OpenAPI))
+	mux.Handle("/api-docs", http.HandlerFunc(docs.SwaggerUI))
 
 	loginLimiter := middleware.NewRateLimiter(10, time.Minute)
 	loginKey := func(r *http.Request) string {

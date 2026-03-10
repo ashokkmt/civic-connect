@@ -1,0 +1,195 @@
+.api-docs-theme #swagger-ui {
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+.api-docs-theme #swagger-ui .swagger-ui,
+.api-docs-theme #swagger-ui .swagger-ui .scheme-container,
+.api-docs-theme #swagger-ui .swagger-ui .responses-wrapper,
+.api-docs-theme #swagger-ui .swagger-ui .parameters-container,
+.api-docs-theme #swagger-ui .swagger-ui .response-control-media-type,
+.api-docs-theme #swagger-ui .swagger-ui .dialog-ux .modal-ux,
+.api-docs-theme #swagger-ui .swagger-ui .tab li,
+.api-docs-theme #swagger-ui .swagger-ui .model-container,
+.api-docs-theme #swagger-ui .swagger-ui .opblock-section-header {
+  background: var(--surface);
+  box-shadow: none;
+}
+
+.api-docs-theme #swagger-ui .swagger-ui,
+.api-docs-theme #swagger-ui .swagger-ui .info,
+.api-docs-theme #swagger-ui .swagger-ui .opblock-tag,
+.api-docs-theme #swagger-ui .swagger-ui .opblock-summary-path,
+.api-docs-theme #swagger-ui .swagger-ui .opblock-summary-description,
+.api-docs-theme #swagger-ui .swagger-ui .responses-inner h4,
+.api-docs-theme #swagger-ui .swagger-ui .responses-inner h5,
+.api-docs-theme #swagger-ui .swagger-ui .response-col_status,
+.api-docs-theme #swagger-ui .swagger-ui .response-col_description,
+.api-docs-theme #swagger-ui .swagger-ui .parameter__name,
+.api-docs-theme #swagger-ui .swagger-ui .parameter__type,
+.api-docs-theme #swagger-ui .swagger-ui .parameter__in,
+.api-docs-theme #swagger-ui .swagger-ui table thead tr th,
+.api-docs-theme #swagger-ui .swagger-ui table thead tr td,
+.api-docs-theme #swagger-ui .swagger-ui label,
+.api-docs-theme #swagger-ui .swagger-ui .model,
+.api-docs-theme #swagger-ui .swagger-ui .model-title {
+  color: var(--foreground);
+}
+
+.api-docs-theme #swagger-ui .swagger-ui .opblock,
+.api-docs-theme #swagger-ui .swagger-ui .opblock .opblock-summary,
+.api-docs-theme #swagger-ui .swagger-ui .responses-table,
+.api-docs-theme #swagger-ui .swagger-ui .parameters-container,
+.api-docs-theme #swagger-ui .swagger-ui .opblock-tag,
+.api-docs-theme #swagger-ui .swagger-ui section.models,
+.api-docs-theme #swagger-ui .swagger-ui section.models .model-container,
+.api-docs-theme #swagger-ui .swagger-ui .btn,
+.api-docs-theme #swagger-ui .swagger-ui input,
+.api-docs-theme #swagger-ui .swagger-ui select,
+.api-docs-theme #swagger-ui .swagger-ui textarea {
+  border-color: var(--border);
+}
+
+.api-docs-theme #swagger-ui .swagger-ui .btn,
+.api-docs-theme #swagger-ui .swagger-ui input,
+.api-docs-theme #swagger-ui .swagger-ui select,
+.api-docs-theme #swagger-ui .swagger-ui textarea,
+.api-docs-theme #swagger-ui .swagger-ui .model-box {
+  background: var(--surface-muted);
+  color: var(--foreground);
+}
+
+.api-docs-theme #swagger-ui .swagger-ui .topbar {
+  display: none;
+}
+
+.api-docs-theme #swagger-ui .swagger-ui section.models {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 95%, #ffffff 5%);
+  padding-bottom: 8px;
+}
+
+.api-docs-theme #swagger-ui .swagger-ui section.models h4,
+.api-docs-theme #swagger-ui .swagger-ui section.models h5,
+.api-docs-theme #swagger-ui .swagger-ui section.models .models-control {
+  color: var(--foreground);
+}
+
+.api-docs-theme #swagger-ui .swagger-ui section.models .model-container {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.api-docs-theme #swagger-ui .swagger-ui section.models .model-box {
+  background: transparent;
+}
+
+.api-docs-theme #swagger-ui .swagger-ui section.models .prop-name,
+.api-docs-theme #swagger-ui .swagger-ui section.models .property,
+.api-docs-theme #swagger-ui .swagger-ui section.models .property-row,
+.api-docs-theme #swagger-ui .swagger-ui section.models .model,
+.api-docs-theme #swagger-ui .swagger-ui section.models .model * {
+  color: var(--foreground);
+}
+
+.api-docs-theme #swagger-ui .swagger-ui section.models .prop-type,
+.api-docs-theme #swagger-ui .swagger-ui section.models .prop-format,
+.api-docs-theme #swagger-ui .swagger-ui section.models .model-hint {
+  color: #2563eb;
+}
+
+.api-docs-theme #swagger-ui .swagger-ui section.models .property-row {
+  border-bottom: 1px dashed color-mix(in srgb, var(--border) 85%, transparent);
+}
+
+.api-docs-theme #swagger-ui .swagger-ui section.models .property-row:last-child {
+  border-bottom: none;
+}
+
+.api-docs-theme #swagger-ui .swagger-ui .model-toggle,
+.api-docs-theme #swagger-ui .swagger-ui .model-toggle:after,
+.api-docs-theme #swagger-ui .swagger-ui .model-box-control,
+.api-docs-theme #swagger-ui .swagger-ui .expand-methods svg,
+.api-docs-theme #swagger-ui .swagger-ui .expand-operation svg,
+.api-docs-theme #swagger-ui .swagger-ui .opblock-control-arrow svg {
+  opacity: 1;
+}
+
+.api-docs-theme #swagger-ui .swagger-ui .model-toggle:after {
+  filter: none;
+}
+
+.dark .api-docs-theme #swagger-ui,
+.dark .api-docs-theme #swagger-ui .swagger-ui,
+.dark .api-docs-theme #swagger-ui .swagger-ui .scheme-container,
+.dark .api-docs-theme #swagger-ui .swagger-ui .responses-wrapper,
+.dark .api-docs-theme #swagger-ui .swagger-ui .parameters-container,
+.dark .api-docs-theme #swagger-ui .swagger-ui .response-control-media-type,
+.dark .api-docs-theme #swagger-ui .swagger-ui .dialog-ux .modal-ux,
+.dark .api-docs-theme #swagger-ui .swagger-ui .tab li,
+.dark .api-docs-theme #swagger-ui .swagger-ui .opblock-section-header {
+  background: #11141b !important;
+  color: #eef0f4 !important;
+}
+
+.dark .api-docs-theme #swagger-ui .swagger-ui,
+.dark .api-docs-theme #swagger-ui .swagger-ui .opblock-tag,
+.dark .api-docs-theme #swagger-ui .swagger-ui .opblock-summary-path,
+.dark .api-docs-theme #swagger-ui .swagger-ui .opblock-summary-description,
+.dark .api-docs-theme #swagger-ui .swagger-ui .responses-inner h4,
+.dark .api-docs-theme #swagger-ui .swagger-ui .responses-inner h5,
+.dark .api-docs-theme #swagger-ui .swagger-ui .response-col_status,
+.dark .api-docs-theme #swagger-ui .swagger-ui .response-col_description,
+.dark .api-docs-theme #swagger-ui .swagger-ui .parameter__name,
+.dark .api-docs-theme #swagger-ui .swagger-ui .parameter__type,
+.dark .api-docs-theme #swagger-ui .swagger-ui .parameter__in,
+.dark .api-docs-theme #swagger-ui .swagger-ui .parameter__extension,
+.dark .api-docs-theme #swagger-ui .swagger-ui table thead tr th,
+.dark .api-docs-theme #swagger-ui .swagger-ui table thead tr td,
+.dark .api-docs-theme #swagger-ui .swagger-ui label,
+.dark .api-docs-theme #swagger-ui .swagger-ui .model,
+.dark .api-docs-theme #swagger-ui .swagger-ui .model-title,
+.dark .api-docs-theme #swagger-ui .swagger-ui .prop-name,
+.dark .api-docs-theme #swagger-ui .swagger-ui section.models h4,
+.dark .api-docs-theme #swagger-ui .swagger-ui section.models h5 {
+  color: #e5e7eb !important;
+}
+
+.dark .api-docs-theme #swagger-ui .swagger-ui .btn,
+.dark .api-docs-theme #swagger-ui .swagger-ui input,
+.dark .api-docs-theme #swagger-ui .swagger-ui select,
+.dark .api-docs-theme #swagger-ui .swagger-ui textarea,
+.dark .api-docs-theme #swagger-ui .swagger-ui .model-box,
+.dark .api-docs-theme #swagger-ui .swagger-ui section.models,
+.dark .api-docs-theme #swagger-ui .swagger-ui section.models .model-container {
+  background: #131825 !important;
+  border-color: #2a3140 !important;
+  color: #eef0f4 !important;
+}
+
+.dark .api-docs-theme #swagger-ui .swagger-ui section.models .prop-type,
+.dark .api-docs-theme #swagger-ui .swagger-ui section.models .prop-format,
+.dark .api-docs-theme #swagger-ui .swagger-ui section.models .model-hint {
+  color: #93c5fd !important;
+}
+
+.dark .api-docs-theme #swagger-ui .swagger-ui section.models .property-row {
+  border-bottom: 1px dashed rgba(67, 80, 104, 0.8);
+}
+
+.dark .api-docs-theme #swagger-ui .swagger-ui .expand-methods svg,
+.dark .api-docs-theme #swagger-ui .swagger-ui .expand-operation svg,
+.dark .api-docs-theme #swagger-ui .swagger-ui .opblock-control-arrow svg {
+  fill: #f8fafc !important;
+}
+
+.dark .api-docs-theme #swagger-ui .swagger-ui .model-toggle,
+.dark .api-docs-theme #swagger-ui .swagger-ui .model-box-control {
+  color: #f8fafc !important;
+}
+
+.dark .api-docs-theme #swagger-ui .swagger-ui .model-toggle:after {
+  filter: invert(1) brightness(1.7);
+}
