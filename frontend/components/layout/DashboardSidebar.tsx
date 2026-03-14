@@ -37,9 +37,7 @@ const navForRole = (role?: string, authoritySubRole?: string): NavItem[] => {
 
   if (role === "AUTHORITY" && authoritySubRole === "WORKER") {
     return [
-      { label: "Overview", href: "/dashboard/worker" },
-      { label: "Assigned Issues", href: "/dashboard/worker/issues" },
-      { label: "Settings", href: "/dashboard/worker/settings" },
+      { label: "Worker Dashboard", href: "/dashboard/authority-worker" },
     ];
   }
 

@@ -1,5 +1,5 @@
-import { AccountSettings } from "@/components/settings/AccountSettings";
+import { redirect } from "next/navigation";
 
-export default function WorkerSettingsPage() {
-  return <AccountSettings roleLabel="Authority Worker" />;
+export default function WorkerSettingsLegacyRedirect() {
+  redirect("/dashboard/authority-worker");
 }

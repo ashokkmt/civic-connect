@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  if (pathname.startsWith("/dashboard/worker")) {
+  if (pathname.startsWith("/dashboard/worker") || pathname.startsWith("/dashboard/authority-worker")) {
     const isWorker = role === "AUTHORITY" && subRole === "WORKER";
     if (!isWorker) {
       return NextResponse.redirect(roleRedirectUrl(request, "/dashboard/forbidden"));

@@ -45,7 +45,7 @@ export default async function DashboardHome() {
         redirect("/dashboard/head");
       }
       if (user.authoritySubRole === "WORKER") {
-        redirect("/dashboard/worker");
+        redirect("/dashboard/authority-worker");
       }
     }
   }

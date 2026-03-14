@@ -14,11 +14,13 @@ export function DashboardShell({ children, role, authoritySubRole }: DashboardSh
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const isCitizenDashboardRoute = pathname.startsWith("/dashboard/citizen");
+  const isAuthorityWorkerDashboardRoute = pathname.startsWith("/dashboard/authority-worker");
+  const hideShellChrome = isCitizenDashboardRoute || isAuthorityWorkerDashboardRoute;
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <div className="flex">
-        {!isCitizenDashboardRoute ? (
+        {!hideShellChrome ? (
           <DashboardSidebar
             className="hidden lg:flex"
             role={role}
@@ -26,9 +28,9 @@ export function DashboardShell({ children, role, authoritySubRole }: DashboardSh
           />
         ) : null}
         <div className="flex min-h-screen w-full flex-col">
-          <main className={isCitizenDashboardRoute ? "flex-1" : "flex-1 px-4 py-6 sm:px-6 sm:py-8"}>
-            <div className={isCitizenDashboardRoute ? "w-full" : "mx-auto w-full max-w-6xl"}>
-              {!isCitizenDashboardRoute ? (
+          <main className={hideShellChrome ? "flex-1" : "flex-1 px-4 py-6 sm:px-6 sm:py-8"}>
+            <div className={hideShellChrome ? "w-full" : "mx-auto w-full max-w-6xl"}>
+              {!hideShellChrome ? (
                 <div className="mb-4 flex items-center lg:hidden">
                   <button
                     type="button"
@@ -46,7 +48,7 @@ export function DashboardShell({ children, role, authoritySubRole }: DashboardSh
         </div>
       </div>
 
-      {!isCitizenDashboardRoute && mobileOpen ? (
+      {!hideShellChrome && mobileOpen ? (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
             type="button"
