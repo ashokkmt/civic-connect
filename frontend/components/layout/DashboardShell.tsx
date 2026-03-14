@@ -16,7 +16,8 @@ export function DashboardShell({ children, role, authoritySubRole }: DashboardSh
   const isCitizenDashboardRoute = pathname.startsWith("/dashboard/citizen");
   const isAuthorityHeadDashboardRoute = pathname.startsWith("/dashboard/authority-head");
   const isAuthorityWorkerDashboardRoute = pathname.startsWith("/dashboard/authority-worker");
-  const hideShellChrome = isCitizenDashboardRoute || isAuthorityHeadDashboardRoute || isAuthorityWorkerDashboardRoute;
+  const isAdminDashboardRoute = pathname.startsWith("/dashboard/admin");
+  const hideShellChrome = isCitizenDashboardRoute || isAuthorityHeadDashboardRoute || isAuthorityWorkerDashboardRoute || isAdminDashboardRoute;
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
