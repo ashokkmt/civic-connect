@@ -27,11 +27,7 @@ const navForRole = (role?: string, authoritySubRole?: string): NavItem[] => {
 
   if (role === "AUTHORITY" && authoritySubRole === "HEAD") {
     return [
-      { label: "Overview", href: "/dashboard/head" },
-      { label: "Pending Issues", href: "/dashboard/head/pending" },
-      { label: "Create Worker", href: "/dashboard/head/workers" },
-      { label: "Close Issue", href: "/dashboard/head/close" },
-      { label: "Settings", href: "/dashboard/head/settings" },
+      { label: "Authority Head Dashboard", href: "/dashboard/authority-head" },
     ];
   }
 

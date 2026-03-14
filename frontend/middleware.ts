@@ -42,7 +42,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(roleRedirectUrl(request, "/dashboard/forbidden"));
   }
 
-  if (pathname.startsWith("/dashboard/head")) {
+  if (pathname.startsWith("/dashboard/head") || pathname.startsWith("/dashboard/authority-head")) {
     const isHead = role === "AUTHORITY" && subRole === "HEAD";
     if (!isHead) {
       return NextResponse.redirect(roleRedirectUrl(request, "/dashboard/forbidden"));

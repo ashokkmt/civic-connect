@@ -1,5 +1,5 @@
-import { AccountSettings } from "@/components/settings/AccountSettings";
+import { redirect } from "next/navigation";
 
-export default function HeadSettingsPage() {
-  return <AccountSettings roleLabel="Authority Head" />;
+export default function HeadSettingsLegacyRedirect() {
+  redirect("/dashboard/authority-head");
 }

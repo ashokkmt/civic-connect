@@ -42,7 +42,7 @@ export default async function DashboardHome() {
 
     if (user.role === "AUTHORITY") {
       if (user.authoritySubRole === "HEAD") {
-        redirect("/dashboard/head");
+        redirect("/dashboard/authority-head");
       }
       if (user.authoritySubRole === "WORKER") {
         redirect("/dashboard/authority-worker");
