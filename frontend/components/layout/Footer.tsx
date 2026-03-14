@@ -1,7 +1,15 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const Footer = () => {
+    const pathname = usePathname();
     const currentYear = new Date().getFullYear();
+
+    if (pathname.startsWith("/dashboard") || pathname.startsWith("/citizen")) {
+        return null;
+    }
 
     return (
         <footer className="bg-[var(--surface)]">

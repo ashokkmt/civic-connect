@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import { DashboardSidebar } from "@/components/layout/DashboardSidebar";
 
 type DashboardShellProps = {
@@ -10,36 +11,42 @@ type DashboardShellProps = {
 };
 
 export function DashboardShell({ children, role, authoritySubRole }: DashboardShellProps) {
+  const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isCitizenDashboardRoute = pathname.startsWith("/dashboard/citizen");
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <div className="flex">
-        <DashboardSidebar
-          className="hidden lg:flex"
-          role={role}
-          authoritySubRole={authoritySubRole}
-        />
+        {!isCitizenDashboardRoute ? (
+          <DashboardSidebar
+            className="hidden lg:flex"
+            role={role}
+            authoritySubRole={authoritySubRole}
+          />
+        ) : null}
         <div className="flex min-h-screen w-full flex-col">
-          <main className="flex-1 px-4 py-6 sm:px-6 sm:py-8">
-            <div className="mx-auto w-full max-w-6xl">
-              <div className="mb-4 flex items-center lg:hidden">
-                <button
-                  type="button"
-                  onClick={() => setMobileOpen(true)}
-                  className="inline-flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-zinc-600 transition hover:bg-[var(--surface-muted)] dark:text-zinc-200"
-                  aria-label="Open menu"
-                >
-                  Open menu
-                </button>
-              </div>
+          <main className={isCitizenDashboardRoute ? "flex-1" : "flex-1 px-4 py-6 sm:px-6 sm:py-8"}>
+            <div className={isCitizenDashboardRoute ? "w-full" : "mx-auto w-full max-w-6xl"}>
+              {!isCitizenDashboardRoute ? (
+                <div className="mb-4 flex items-center lg:hidden">
+                  <button
+                    type="button"
+                    onClick={() => setMobileOpen(true)}
+                    className="inline-flex items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-zinc-600 transition hover:bg-[var(--surface-muted)] dark:text-zinc-200"
+                    aria-label="Open menu"
+                  >
+                    Open menu
+                  </button>
+                </div>
+              ) : null}
               {children}
             </div>
           </main>
         </div>
       </div>
 
-      {mobileOpen ? (
+      {!isCitizenDashboardRoute && mobileOpen ? (
         <div className="fixed inset-0 z-40 lg:hidden">
           <button
             type="button"

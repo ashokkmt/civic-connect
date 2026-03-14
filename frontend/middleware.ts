@@ -38,7 +38,7 @@ export async function middleware(request: NextRequest) {
   const role = payload.data?.user?.role;
   const subRole = payload.data?.user?.authoritySubRole;
 
-  if (pathname.startsWith("/dashboard/citizen") && role !== "CITIZEN") {
+  if ((pathname.startsWith("/dashboard/citizen") || pathname.startsWith("/citizen")) && role !== "CITIZEN") {
     return NextResponse.redirect(roleRedirectUrl(request, "/dashboard/forbidden"));
   }
 
@@ -64,5 +64,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*"],
+  matcher: ["/dashboard/:path*", "/citizen/:path*", "/citizen"],
 };

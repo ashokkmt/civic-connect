@@ -2,6 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 import { useLocation } from "@/lib/location/context";
@@ -12,6 +13,7 @@ type MeResponse = {
 };
 
 export function PublicNavbar() {
+  const pathname = usePathname();
   const { location } = useLocation();
   const [open, setOpen] = React.useState(false);
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
@@ -42,6 +44,10 @@ export function PublicNavbar() {
       setIsLoggingOut(false);
     }
   };
+
+  if (pathname.startsWith("/dashboard") || pathname.startsWith("/citizen")) {
+    return null;
+  }
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur">
