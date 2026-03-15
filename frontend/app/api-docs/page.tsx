@@ -105,16 +105,16 @@ export default function ApiDocsPage() {
   return (
     <main className="api-docs-theme relative w-full overflow-hidden px-4 py-10 md:px-8">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -top-24 left-1/3 h-72 w-72 rounded-full bg-cyan-400/20 blur-3xl dark:bg-cyan-500/15" />
-        <div className="absolute bottom-0 right-8 h-80 w-80 rounded-full bg-emerald-400/20 blur-3xl dark:bg-emerald-500/10" />
+        <div className="absolute -top-24 left-1/3 h-72 w-72 rounded-full bg-sky-400/20 blur-3xl dark:bg-sky-500/15" />
+        <div className="absolute bottom-0 right-8 h-80 w-80 rounded-full bg-indigo-400/20 blur-3xl dark:bg-indigo-500/10" />
       </div>
 
       <section className="relative mx-auto w-full max-w-7xl space-y-6">
         <header className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/90 p-6 shadow-sm backdrop-blur md:p-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-700 dark:text-cyan-300">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-700 dark:text-sky-300">
             Developer Portal
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight md:text-4xl">Interactive API Docs</h1>
+          <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 md:text-4xl">Interactive API Docs</h1>
           <p className="mt-3 max-w-3xl text-sm text-slate-600 dark:text-slate-300 md:text-base">
             Explore endpoints, inspect schemas, and send test requests directly from this page.
             This documentation is powered by the live OpenAPI definition at /openapi.yaml.

@@ -7,17 +7,17 @@ const Footer = () => {
     const pathname = usePathname();
     const currentYear = new Date().getFullYear();
 
-    if (pathname.startsWith("/dashboard") || pathname.startsWith("/citizen")) {
+    if (pathname.startsWith("/dashboard")) {
         return null;
     }
 
     return (
-        <footer className="bg-[var(--surface)]">
-            <div className="mx-auto w-full max-w-6xl px-6 py-16">
+        <footer className="border-t border-[var(--border)] bg-[var(--surface)] dark:bg-[var(--home-surface)]">
+            <div className="mx-auto w-full max-w-6xl px-6 py-12">
                 <div className="grid gap-12 lg:grid-cols-[1.1fr_2fr]">
                     <div className="space-y-5">
                         <Link href="/" className="flex items-center gap-3">
-                            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-sm font-bold text-white shadow-sm">
+                            <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-[#1173d4] to-sky-600 text-sm font-bold text-white shadow-sm">
                                 CC
                             </div>
                             <div>

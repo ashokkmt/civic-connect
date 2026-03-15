@@ -16,6 +16,7 @@ export function PublicNavbar() {
   const pathname = usePathname();
   const { location } = useLocation();
   const [open, setOpen] = React.useState(false);
+  const [isScrolled, setIsScrolled] = React.useState(false);
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const router = useRouter();
@@ -34,6 +35,16 @@ export function PublicNavbar() {
     load();
   }, []);
 
+  React.useEffect(() => {
+    const onScroll = () => {
+      setIsScrolled(window.scrollY > 8);
+    };
+
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
@@ -45,15 +56,24 @@ export function PublicNavbar() {
     }
   };
 
-  if (pathname.startsWith("/dashboard") || pathname.startsWith("/citizen")) {
+  if (pathname.startsWith("/dashboard")) {
     return null;
   }
 
+  const headerClassName = [
+    "sticky top-0 z-40 border-b border-[var(--border)] transition-all duration-300",
+    isScrolled
+      ? "bg-[var(--background)]/85 backdrop-blur-xl"
+      : "bg-[var(--surface)] dark:bg-[var(--home-surface)]",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--border)] bg-[var(--surface)]/95 backdrop-blur">
+    <header className={headerClassName}>
       <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-sm font-bold text-white shadow-sm">
+          <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-[#1173d4] to-sky-600 text-sm font-bold text-white shadow-sm">
             CC
           </div>
           <div className="leading-tight">
@@ -74,7 +94,7 @@ export function PublicNavbar() {
               <Link className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/login">
                 Login
               </Link>
-              <Link className="rounded-full border border-[var(--border)] px-4 py-2 text-xs font-semibold text-zinc-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-[var(--surface-muted)] dark:text-zinc-200" href="/register">
+              <Link className="rounded-full bg-[#1173d4] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-[#0f66bd]" href="/register">
                 Register
               </Link>
             </>
@@ -111,7 +131,7 @@ export function PublicNavbar() {
       </div>
 
       {open ? (
-        <div className="border-t border-[var(--border)] bg-[var(--surface)] px-6 py-4 md:hidden lg:px-8">
+        <div className="border-t border-[var(--border)] bg-[var(--surface)] px-6 py-4 dark:bg-[var(--home-surface)] md:hidden lg:px-8">
           <div className="flex flex-col gap-3 text-sm font-medium">
             <Link
               className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"

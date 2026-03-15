@@ -132,7 +132,7 @@ export default function HomePage() {
   }, [locationReady, location?.lat, location?.lng]);
 
   return (
-    <div className="relative">
+    <div className="home-tone relative">
       <HeroSection />
       <div className="mx-auto w-full max-w-6xl px-6 py-4 lg:px-8">
         <LocationSetupCard

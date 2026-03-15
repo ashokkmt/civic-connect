@@ -182,20 +182,20 @@ export default function IssuesPage() {
   };
 
   return (
-    <section className="space-y-8 py-10">
+    <section className="space-y-8 py-8">
       <header className="space-y-4">
-        <span className="w-fit rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.35em] text-zinc-500 dark:text-zinc-300">
+        <span className="w-fit rounded-full border border-sky-200 bg-sky-50 px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.35em] text-sky-700 dark:border-sky-500/30 dark:bg-sky-900/30 dark:text-sky-200">
           Public Issues
         </span>
-        <h1 className="text-3xl font-semibold text-zinc-900 dark:text-white">Community issue explorer</h1>
-        <p className="max-w-2xl text-sm text-zinc-600 dark:text-zinc-300">
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Community issue explorer</h1>
+        <p className="max-w-2xl text-sm text-slate-600 dark:text-slate-300">
           Filter and browse approved community issues near your saved location. Some filters apply only when the
           backend provides those fields.
         </p>
       </header>
 
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-        <aside className="space-y-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 lg:sticky lg:top-24 lg:h-fit">
+        <aside className="space-y-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm lg:sticky lg:top-24 lg:h-fit dark:bg-[var(--home-surface)]">
           <div className="space-y-2">
             <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Search</p>
             <input
@@ -332,7 +332,7 @@ export default function IssuesPage() {
                   type="button"
                   onClick={loadMore}
                   disabled={loadingMore}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-zinc-700 transition hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-60 dark:text-slate-200"
                 >
                   {loadingMore ? "Loading more issues..." : "Load more issues"}
                 </button>

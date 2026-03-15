@@ -22,11 +22,13 @@ type SearchResult = {
 type LocationSetupCardProps = {
   title?: string;
   description?: string;
+  className?: string;
 };
 
 export function LocationSetupCard({
   title = "Set your location",
   description = "Choose your location using geolocation, map click, or optional manual search.",
+  className,
 }: LocationSetupCardProps) {
   const { location, setLocation, clearLocation } = useLocation();
   const [latInput, setLatInput] = useState(location ? String(location.lat) : "");
@@ -117,7 +119,7 @@ export function LocationSetupCard({
   };
 
   return (
-    <section className="space-y-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
+    <section className={`space-y-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 ${className ?? ""}`}>
       <header className="space-y-1">
         <h2 className="text-lg font-semibold text-zinc-900 dark:text-white">{title}</h2>
         <p className="text-sm text-zinc-600 dark:text-zinc-300">{description}</p>
@@ -177,7 +179,7 @@ export function LocationSetupCard({
         <button
           type="button"
           onClick={submitManualLocation}
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 dark:bg-white dark:text-zinc-900"
+          className="rounded-lg bg-[#1173d4] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0f66bd]"
         >
           Save coordinates
         </button>

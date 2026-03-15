@@ -31,7 +31,7 @@ export function MetricsSection({ stats, locationReady, loading, error }) {
           <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.35em] text-zinc-500 dark:text-zinc-300">
             Civic Metrics
           </span>
-          <h2 className="text-2xl font-semibold text-zinc-900 dark:text-white">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
             Live public system metrics
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -49,12 +49,12 @@ export function MetricsSection({ stats, locationReady, loading, error }) {
           {metrics.map((metric) => (
             <div key={metric.label} className="space-y-2">
               <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.6)]" />
+                <span className="h-2 w-2 rounded-full bg-[#1173d4]/80 shadow-[0_0_12px_rgba(17,115,212,0.5)]" />
                 <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
                   {metric.label}
                 </p>
               </div>
-              <p className="text-3xl font-semibold text-zinc-900 dark:text-white">
+              <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">
                 {locationReady ? metric.value : "--"}
               </p>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">{metric.helper}</p>

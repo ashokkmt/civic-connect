@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { JetBrains_Mono, Manrope } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import { LocationProvider } from "@/lib/location/context";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import "./globals.css";
 import { PublicNavbar } from "@/components/layout/PublicNavbar";
 import Footer from "@/components/layout/Footer";
 
-const manrope = Manrope({
-  variable: "--font-manrope",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
 });
 
@@ -29,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <body
-        className={`${manrope.variable} ${jetBrainsMono.variable} min-h-screen bg-[var(--background)] antialiased`}
+        className={`${inter.variable} ${jetBrainsMono.variable} min-h-screen bg-[var(--background)] antialiased`}
       >
         <LocationProvider>
           <ThemeProvider>

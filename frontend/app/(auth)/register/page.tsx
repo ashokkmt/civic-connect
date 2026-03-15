@@ -49,11 +49,11 @@ export default function RegisterPage() {
   return (
     <div className="space-y-8">
       <header className="space-y-3 text-center">
-        <span className="mx-auto inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.35em] text-zinc-500 dark:text-zinc-300">
+        <span className="mx-auto inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.35em] text-sky-700 dark:border-sky-500/30 dark:bg-sky-900/30 dark:text-sky-200">
           Create Account
         </span>
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-white">Join CivicConnect</h1>
-        <p className="text-sm text-zinc-600 dark:text-zinc-300">
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">Join CivicConnect</h1>
+        <p className="text-sm text-slate-600 dark:text-slate-300">
           Start reporting and tracking issues in your community.
         </p>
       </header>
@@ -108,13 +108,13 @@ export default function RegisterPage() {
         <button
           type="submit"
           disabled={loading}
-          className="flex w-full items-center justify-center rounded-full bg-zinc-900 px-4 py-3 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:-translate-y-0.5 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-70 dark:bg-white dark:text-zinc-900"
+          className="flex w-full items-center justify-center rounded-full bg-[#1173d4] px-4 py-3 text-xs font-semibold uppercase tracking-[0.3em] text-white transition hover:-translate-y-0.5 hover:bg-[#0f66bd] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {loading ? "Creating account..." : "Register"}
         </button>
         <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
           Already have an account?{" "}
-          <Link href="/login" className="font-semibold text-emerald-600 hover:text-emerald-500 dark:text-emerald-300">
+          <Link href="/login" className="font-semibold text-sky-600 hover:text-sky-500 dark:text-sky-300">
             Sign in
           </Link>
         </p>

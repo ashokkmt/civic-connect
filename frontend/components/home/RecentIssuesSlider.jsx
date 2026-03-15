@@ -87,7 +87,7 @@ export function RecentIssuesSlider({ issues, locationReady, loading, error }) {
                 {loopItems.map((issue, index) => (
                   <article
                     key={`${issue.id}-${index}`}
-                    className="min-w-[300px] rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 shadow-sm transition hover:-translate-y-0.5"
+                    className="min-w-[300px] rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm transition hover:-translate-y-0.5"
                   >
                     <div className="flex items-start justify-between gap-3">
                       <p className="text-sm font-semibold text-zinc-900 line-clamp-2 dark:text-white">
@@ -96,7 +96,7 @@ export function RecentIssuesSlider({ issues, locationReady, loading, error }) {
                       <StatusBadge status={issue.status} />
                     </div>
                     <div className="mt-3 flex items-center gap-3">
-                      <div className="h-12 w-16 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20" />
+                      <div className="h-12 w-16 rounded-lg bg-gradient-to-br from-sky-400/20 to-indigo-400/20 dark:from-sky-300/15 dark:to-indigo-300/15" />
                       <div>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
                           {issue.category ? `${issue.category} Department` : "Civic Department"}
@@ -121,7 +121,7 @@ export function RecentIssuesSlider({ issues, locationReady, loading, error }) {
               {issues.map((issue) => (
                 <article
                   key={issue.id}
-                  className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-4 shadow-sm transition hover:-translate-y-0.5"
+                  className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm transition hover:-translate-y-0.5"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-semibold text-zinc-900 line-clamp-2 dark:text-white">
@@ -130,7 +130,7 @@ export function RecentIssuesSlider({ issues, locationReady, loading, error }) {
                     <StatusBadge status={issue.status} />
                   </div>
                   <div className="mt-3 flex items-center gap-3">
-                    <div className="h-12 w-16 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20" />
+                    <div className="h-12 w-16 rounded-lg bg-gradient-to-br from-sky-400/20 to-indigo-400/20 dark:from-sky-300/15 dark:to-indigo-300/15" />
                     <div>
                       <p className="text-xs text-zinc-500 dark:text-zinc-400">
                         {issue.category ? `${issue.category} Department` : "Civic Department"}

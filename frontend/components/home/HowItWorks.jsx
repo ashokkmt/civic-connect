@@ -31,7 +31,7 @@ const steps = [
 export function HowItWorks() {
   return (
     <section className="bg-[var(--background)]">
-      <div className="mx-auto w-full max-w-6xl px-6 py-16 lg:py-20">
+      <div className="mx-auto w-full max-w-6xl px-6 pb-16 pt-14 lg:pb-20 lg:pt-16">
         <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 text-center">
           <span className="rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-1 text-[10px] font-semibold uppercase tracking-[0.35em] text-zinc-500 dark:text-zinc-300">
             How CivicConnect Works
@@ -60,7 +60,7 @@ export function HowItWorks() {
                     </p>
                   </div>
                   <div className="order-2 flex items-center justify-center">
-                    <span className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full border border-emerald-500/30 bg-[var(--surface)] text-emerald-600 shadow-sm dark:bg-[var(--surface)] dark:text-emerald-300">
+                    <span className="relative z-10 flex h-12 w-12 items-center justify-center rounded-full border border-sky-500/30 bg-[var(--surface)] text-sky-600 shadow-sm dark:bg-[var(--surface)] dark:text-sky-300">
                       <step.Icon className="h-5 w-5" />
                     </span>
                   </div>
