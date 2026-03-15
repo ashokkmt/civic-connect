@@ -7,6 +7,7 @@ export type WorkerIssue = {
   title: string;
   description: string;
   status: string;
+  category?: string;
   createdAt?: string;
   updatedAt?: string;
   priority?: string;

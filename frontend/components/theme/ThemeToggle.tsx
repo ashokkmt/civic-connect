@@ -3,7 +3,7 @@
 import { useTheme } from "@/components/theme/ThemeProvider";
 
 export function ThemeToggle() {
-  const { theme, toggle } = useTheme();
+  const { toggle } = useTheme();
 
   return (
     <button
@@ -12,7 +12,7 @@ export function ThemeToggle() {
       className="inline-flex items-center rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] shadow-sm transition hover:shadow"
       aria-label="Toggle theme"
     >
-      {theme === "dark" ? "Light" : "Dark"}
+      Theme
     </button>
   );
 }

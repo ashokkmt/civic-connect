@@ -1,20 +1,41 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Bell, ChevronDown, Moon, Sun, User } from "lucide-react";
-import { useTheme } from "@/components/theme/ThemeProvider";
+import { Bell, ChevronDown, Search, UserRound } from "lucide-react";
+import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 type NavbarProps = {
   title: string;
-  subtitle: string;
+  subtitle?: string;
+  searchPlaceholder?: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  profileName?: string;
+  profileSubtitle?: string;
+  onProfile?: () => void;
+  onSettings?: () => void;
+  onLogout?: () => Promise<void> | void;
+  isLoggingOut?: boolean;
+  onToggleMobileMenu?: () => void;
+  mobileMenuButton?: React.ReactNode;
 };
 
-export function Navbar({ title, subtitle }: NavbarProps) {
-  const router = useRouter();
-  const { theme, toggle } = useTheme();
+export function Navbar({
+  title,
+  subtitle,
+  searchPlaceholder = "Search...",
+  searchValue,
+  onSearchChange,
+  profileName,
+  profileSubtitle,
+  onProfile,
+  onSettings,
+  onLogout,
+  isLoggingOut = false,
+  onToggleMobileMenu,
+  mobileMenuButton,
+}: NavbarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -37,75 +58,98 @@ export function Navbar({ title, subtitle }: NavbarProps) {
     return () => window.removeEventListener("click", onWindowClick);
   }, [profileOpen]);
 
-  const goToProfileSettings = () => {
-    setProfileOpen(false);
-    router.push("/dashboard/citizen?view=profile_settings");
-  };
-
-  const logout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/");
-    } finally {
-      setIsLoggingOut(false);
-      setProfileOpen(false);
-    }
-  };
-
   return (
-    <header className="sticky top-0 z-30 border-b border-[var(--border)] bg-[var(--surface)]/85 px-4 py-4 backdrop-blur-xl sm:px-7">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Citizen dashboard</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-100">{title}</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{subtitle}</p>
+    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 md:px-8">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-4 md:gap-6">
+          {mobileMenuButton ? (
+            <button
+              type="button"
+              onClick={onToggleMobileMenu}
+              className="rounded-lg bg-slate-100 p-2 text-slate-600 md:hidden dark:bg-slate-800 dark:text-slate-300"
+              aria-label="Open menu"
+            >
+              {mobileMenuButton}
+            </button>
+          ) : null}
+
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-bold tracking-tight text-slate-900 md:text-xl dark:text-slate-100">{title}</h2>
+            {subtitle ? <p className="hidden truncate text-xs text-slate-500 sm:block dark:text-slate-400">{subtitle}</p> : null}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="ml-3 flex items-center gap-3 md:gap-4">
+          <label className="relative hidden w-full max-w-md sm:block">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              value={searchValue ?? ""}
+              onChange={(event) => onSearchChange?.(event.target.value)}
+              placeholder={searchPlaceholder}
+              className="w-full rounded-lg bg-slate-100 py-2 pl-9 pr-4 text-sm text-slate-700 outline-none ring-sky-400 placeholder:text-slate-500 focus:ring-2 dark:bg-slate-800 dark:text-slate-200"
+            />
+          </label>
+
           <button
             type="button"
-            className="relative rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-2.5 text-zinc-600 transition hover:-translate-y-0.5 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+            className="relative rounded-lg bg-slate-100 p-2 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
             aria-label="Notifications"
           >
             <Bell className="h-4 w-4" />
-            <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-rose-500" />
+            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border border-white bg-red-500 dark:border-slate-900" />
           </button>
-          <button
-            type="button"
-            onClick={toggle}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-2.5 text-zinc-600 transition hover:-translate-y-0.5 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
-            aria-label="Toggle theme"
-          >
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
+
+          <ThemeToggle />
+
           <div className="relative" ref={menuRef}>
             <button
               type="button"
               onClick={() => setProfileOpen((prev) => !prev)}
-              className="inline-flex items-center gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2.5 text-xs font-medium text-zinc-700 transition hover:-translate-y-0.5 dark:text-zinc-200"
-              aria-label="Profile menu"
+              className="flex items-center gap-1 rounded-full border border-slate-200 bg-slate-100 px-1.5 py-1 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              aria-label="Open profile menu"
               aria-expanded={profileOpen}
             >
-              <User className="h-4 w-4" />
-              <span className="hidden sm:inline">Profile</span>
-              <ChevronDown className={`h-3.5 w-3.5 transition ${profileOpen ? "rotate-180" : ""}`} />
+              <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-700">
+                <UserRound className="h-4 w-4" />
+              </span>
+              <ChevronDown className={`hidden h-3.5 w-3.5 transition sm:block ${profileOpen ? "rotate-180" : ""}`} />
             </button>
 
             {profileOpen ? (
-              <div className="absolute right-0 mt-2 w-44 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-1.5 shadow-lg">
+              <div className="absolute right-0 top-12 z-30 w-44 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                <div className="px-3 py-1.5">
+                  <p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100">{profileName ?? "User"}</p>
+                  {profileSubtitle ? <p className="truncate text-xs text-slate-500 dark:text-slate-400">{profileSubtitle}</p> : null}
+                </div>
                 <button
                   type="button"
-                  onClick={goToProfileSettings}
-                  className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-zinc-700 transition hover:bg-[var(--surface-muted)] dark:text-zinc-200"
+                  onClick={() => {
+                    onProfile?.();
+                    setProfileOpen(false);
+                  }}
+                  className="w-full rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                 >
-                  Profile settings
+                  Profile
                 </button>
                 <button
                   type="button"
-                  onClick={logout}
+                  onClick={() => {
+                    onSettings?.();
+                    setProfileOpen(false);
+                  }}
+                  className="w-full rounded-md px-3 py-2 text-left text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  Settings
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await onLogout?.();
+                    setProfileOpen(false);
+                  }}
                   disabled={isLoggingOut}
-                  className="w-full rounded-lg px-3 py-2 text-left text-xs font-medium text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-300 dark:hover:bg-red-900/20"
+                  className="w-full rounded-md px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-300 dark:hover:bg-red-900/20"
                 >
                   {isLoggingOut ? "Logging out..." : "Logout"}
                 </button>

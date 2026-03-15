@@ -1,16 +1,34 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AuthorityWorkerNavbar } from "@/components/layout/AuthorityWorkerNavbar";
-import { AuthorityWorkerSidebar } from "@/components/layout/AuthorityWorkerSidebar";
+import { ClipboardList, LayoutDashboard, Menu, Send } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Navbar } from "@/components/layout/Navbar";
+import { Sidebar } from "@/components/layout/Sidebar";
 import { AssignedIssues } from "@/components/dashboards/authority-worker/AssignedIssues";
 import { SubmitResolution } from "@/components/dashboards/authority-worker/SubmitResolution";
 import { WorkerDashboard } from "@/components/dashboards/authority-worker/WorkerDashboard";
 import type { WorkerIssue, WorkerResponse, WorkerView } from "@/components/dashboards/authority-worker/types";
 
+type MeResponse = {
+  success: boolean;
+  data?: {
+    user?: {
+      name?: string;
+      email?: string;
+    };
+  };
+};
+
 export function AuthorityWorkerDashboard() {
+  const router = useRouter();
+
   const [activeView, setActiveView] = useState<WorkerView>("overview");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [search, setSearch] = useState("");
+  const [name, setName] = useState("Authority Worker");
+  const [email, setEmail] = useState("worker@civicconnect.local");
 
   const [issues, setIssues] = useState<WorkerIssue[]>([]);
   const [loading, setLoading] = useState(false);
@@ -48,6 +66,30 @@ export function AuthorityWorkerDashboard() {
   useEffect(() => {
     void loadAssigned();
   }, [loadAssigned]);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { method: "GET" });
+        const payload = (await response.json()) as MeResponse;
+        if (!response.ok || !payload.success) {
+          return;
+        }
+
+        const user = payload.data?.user;
+        if (user?.name) {
+          setName(user.name);
+        }
+        if (user?.email) {
+          setEmail(user.email);
+        }
+      } catch {
+        // Keep dashboard usable even if profile fetch fails.
+      }
+    };
+
+    void loadProfile();
+  }, []);
 
   const inProgressIssues = useMemo(
     () => issues.filter((issue) => issue.status === "IN_PROGRESS"),
@@ -121,63 +163,118 @@ export function AuthorityWorkerDashboard() {
 
   const totalAssigned = issues.filter((issue) => issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS").length;
 
+  const sidebarItems = useMemo(
+    () => [
+      { id: "overview", label: "Dashboard", icon: LayoutDashboard },
+      { id: "assigned_issues", label: "Assigned Issues", icon: ClipboardList, badge: `${totalAssigned}` },
+      { id: "submit_resolution", label: "Submit Resolution", icon: Send, badge: `${inProgressIssues.length}` },
+    ],
+    [inProgressIssues.length, totalAssigned]
+  );
+
+  const logout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  const currentTitle =
+    activeView === "overview"
+      ? "Worker Dashboard"
+      : activeView === "assigned_issues"
+        ? "Assigned Issues"
+        : "Resolution Submission";
+
+  const currentSubtitle =
+    activeView === "overview"
+      ? "Overview of your current assignments and progress."
+      : activeView === "assigned_issues"
+        ? "Review and handle your active maintenance tasks."
+        : "Document completed work and submit final notes.";
+
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_15%_15%,rgba(14,165,233,0.12),transparent_35%),radial-gradient(circle_at_85%_10%,rgba(6,182,212,0.1),transparent_30%)]" />
-      <div className="flex min-h-screen">
-        <AuthorityWorkerSidebar
+    <div className="h-screen overflow-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar
+          items={sidebarItems}
           activeView={activeView}
-          onSelect={setActiveView}
+          onSelect={(view) => {
+            setActiveView(view as WorkerView);
+            setMobileOpen(false);
+          }}
           mobileOpen={mobileOpen}
           onOpenMobile={() => setMobileOpen(true)}
           onCloseMobile={() => setMobileOpen(false)}
-          totalAssigned={totalAssigned}
-          inProgressCount={inProgressIssues.length}
+          portalLabel="Worker Portal"
+          helpTitle="Shift Support"
+          helpDescription="Need help with assigned maintenance tasks?"
+          helpButtonLabel="Contact Supervisor"
+          showMobileTrigger={false}
         />
 
         <div className="min-w-0 flex-1">
-          <AuthorityWorkerNavbar activeView={activeView} onRefresh={() => void loadAssigned()} isRefreshing={loading} />
-          <main className="px-4 py-6 sm:px-6 sm:py-8">
-            <div className="mx-auto w-full max-w-[1240px] space-y-6">
-              {activeView === "overview" ? (
-                <WorkerDashboard issues={issues} onNavigate={setActiveView} />
-              ) : null}
+          <div className="flex h-screen flex-col overflow-hidden">
+            <Navbar
+              title={currentTitle}
+              subtitle={currentSubtitle}
+              searchPlaceholder="Search tasks..."
+              searchValue={search}
+              onSearchChange={setSearch}
+              profileName={name}
+              profileSubtitle={email}
+              onProfile={() => setActiveView("overview")}
+              onSettings={() => setError("Worker settings view is not available yet.")}
+              onLogout={logout}
+              isLoggingOut={isLoggingOut}
+              onToggleMobileMenu={() => setMobileOpen(true)}
+              mobileMenuButton={<Menu className="h-4 w-4" />}
+            />
 
-              {activeView === "assigned_issues" ? (
-                <AssignedIssues
-                  issues={issues}
-                  loading={loading}
-                  error={error}
-                  requestId={requestId}
-                  actionLoadingId={actionLoadingId}
-                  onStart={startIssue}
-                  onOpenResolution={(issueId) => {
-                    setSelectedIssueId(issueId);
-                    setActiveView("submit_resolution");
-                  }}
-                />
-              ) : null}
+            <main className="h-[calc(100vh-4rem)] overflow-y-auto p-4 sm:p-6 lg:p-8">
+              <div className="mx-auto w-full max-w-6xl space-y-6">
+                {activeView === "overview" ? <WorkerDashboard issues={issues} onNavigate={setActiveView} /> : null}
 
-              {activeView === "submit_resolution" ? (
-                <SubmitResolution
-                  issues={inProgressIssues}
-                  selectedIssueId={selectedIssueId}
-                  notesByIssue={notesByIssue}
-                  actionLoadingId={actionLoadingId}
-                  error={error}
-                  requestId={requestId}
-                  onSelectIssue={setSelectedIssueId}
-                  onNoteChange={(issueId, value) =>
-                    setNotesByIssue((prev) => ({
-                      ...prev,
-                      [issueId]: value,
-                    }))
-                  }
-                  onSubmit={resolveIssue}
-                />
-              ) : null}
-            </div>
-          </main>
+                {activeView === "assigned_issues" ? (
+                  <AssignedIssues
+                    issues={issues}
+                    loading={loading}
+                    error={error}
+                    requestId={requestId}
+                    actionLoadingId={actionLoadingId}
+                    onStart={startIssue}
+                    onRefresh={loadAssigned}
+                    onOpenResolution={(issueId) => {
+                      setSelectedIssueId(issueId);
+                      setActiveView("submit_resolution");
+                    }}
+                  />
+                ) : null}
+
+                {activeView === "submit_resolution" ? (
+                  <SubmitResolution
+                    issues={inProgressIssues}
+                    selectedIssueId={selectedIssueId}
+                    notesByIssue={notesByIssue}
+                    actionLoadingId={actionLoadingId}
+                    error={error}
+                    requestId={requestId}
+                    onSelectIssue={setSelectedIssueId}
+                    onNoteChange={(issueId, value) =>
+                      setNotesByIssue((prev) => ({
+                        ...prev,
+                        [issueId]: value,
+                      }))
+                    }
+                    onSubmit={resolveIssue}
+                  />
+                ) : null}
+              </div>
+            </main>
+          </div>
         </div>
       </div>
     </div>
