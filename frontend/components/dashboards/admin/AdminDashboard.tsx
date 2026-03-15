@@ -2,18 +2,35 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
-import { AdminNavbar } from "@/components/layout/AdminNavbar";
-import { AdminSidebar } from "@/components/layout/AdminSidebar";
-import type { AdminView } from "@/components/layout/AdminSidebar";
-import type { ApiResponse, DepartmentRow, EscalationItem, HeadRow, OverviewStats } from "@/components/dashboards/admin/types";
+import { AlertTriangle, Building2, LayoutDashboard, Menu, ShieldUser } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Navbar } from "@/components/layout/Navbar";
+import { Sidebar } from "@/components/layout/Sidebar";
+import type { AdminView, ApiResponse, DepartmentRow, EscalationItem, HeadRow, OverviewStats } from "@/components/dashboards/admin/types";
 import { OverviewView } from "@/components/dashboards/admin/views/OverviewView";
 import { DepartmentManagementView } from "@/components/dashboards/admin/views/DepartmentManagementView";
 import { HeadRegistrationView } from "@/components/dashboards/admin/views/HeadRegistrationView";
 import { EscalationsView } from "@/components/dashboards/admin/views/EscalationsView";
 
+type MeResponse = {
+  success: boolean;
+  data?: {
+    user?: {
+      name?: string;
+      email?: string;
+    };
+  };
+};
+
 export function AdminDashboard() {
+  const router = useRouter();
+
   const [activeView, setActiveView] = useState<AdminView>("overview");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [name, setName] = useState("Admin User");
+  const [email, setEmail] = useState("admin@civicconnect.local");
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -33,6 +50,16 @@ export function AdminDashboard() {
   const [headDepartmentId, setHeadDepartmentId] = useState("");
   const [headSaving, setHeadSaving] = useState(false);
   const [headMessage, setHeadMessage] = useState<string | null>(null);
+
+  const sidebarItems = useMemo(
+    () => [
+      { id: "overview", label: "Dashboard", icon: LayoutDashboard },
+      { id: "departments", label: "Departments", icon: Building2 },
+      { id: "head_registration", label: "Head Registration", icon: ShieldUser },
+      { id: "escalations", label: "Escalated Issues", icon: AlertTriangle, badge: `${escalations.length}` },
+    ],
+    [escalations.length]
+  );
 
   const loadEscalations = useCallback(async () => {
     setLoading(true);
@@ -97,6 +124,31 @@ export function AdminDashboard() {
       pendingEscalations,
     };
   }, [departmentRows, escalations, headRows]);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const response = await fetch("/api/auth/me", { method: "GET" });
+        const payload = (await response.json()) as MeResponse;
+
+        if (!response.ok || !payload.success) {
+          return;
+        }
+
+        const user = payload.data?.user;
+        if (user?.name) {
+          setName(user.name);
+        }
+        if (user?.email) {
+          setEmail(user.email);
+        }
+      } catch {
+        // Keep dashboard usable even if profile fetch fails.
+      }
+    };
+
+    void loadProfile();
+  }, []);
 
   const createDepartment = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -237,73 +289,173 @@ export function AdminDashboard() {
     void loadEscalations();
   }, [loadEscalations]);
 
+  const logout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
+  const searchQuery = search.trim().toLowerCase();
+
+  const filteredDepartmentRows = useMemo(() => {
+    if (!searchQuery) {
+      return departmentRows;
+    }
+
+    return departmentRows.filter((row) => {
+      return (
+        row.name.toLowerCase().includes(searchQuery) ||
+        row.headName.toLowerCase().includes(searchQuery) ||
+        row.id.toLowerCase().includes(searchQuery)
+      );
+    });
+  }, [departmentRows, searchQuery]);
+
+  const filteredHeadRows = useMemo(() => {
+    if (!searchQuery) {
+      return headRows;
+    }
+
+    return headRows.filter((row) => {
+      return (
+        row.name.toLowerCase().includes(searchQuery) ||
+        row.email.toLowerCase().includes(searchQuery) ||
+        row.departmentId.toLowerCase().includes(searchQuery)
+      );
+    });
+  }, [headRows, searchQuery]);
+
+  const filteredEscalations = useMemo(() => {
+    if (!searchQuery) {
+      return escalations;
+    }
+
+    return escalations.filter((item) => {
+      const id = (item.id ?? item.issueId ?? "").toLowerCase();
+      const departmentId = (item.departmentId ?? "").toLowerCase();
+      const level = (item.escalationLevel ?? "").toLowerCase();
+
+      return id.includes(searchQuery) || departmentId.includes(searchQuery) || level.includes(searchQuery);
+    });
+  }, [escalations, searchQuery]);
+
+  const viewMeta: Record<AdminView, { title: string; subtitle: string }> = {
+    overview: {
+      title: "System Metrics Dashboard",
+      subtitle: "Track platform-wide operations, department outcomes, and escalated issue load.",
+    },
+    departments: {
+      title: "Department Management",
+      subtitle: "Create departments and monitor department-level issue resolution performance.",
+    },
+    head_registration: {
+      title: "Register Department Head",
+      subtitle: "Provision leadership accounts with secure department assignment.",
+    },
+    escalations: {
+      title: "Escalated Issues",
+      subtitle: "Manage overdue critical issues that require admin intervention.",
+    },
+  };
+
+  const currentView = viewMeta[activeView];
+
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_10%_15%,rgba(17,115,212,0.13),transparent_35%),radial-gradient(circle_at_85%_8%,rgba(16,185,129,0.10),transparent_30%)]" />
-      <div className="flex min-h-screen">
-        <AdminSidebar
+    <div className="h-screen overflow-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <div className="flex h-screen overflow-hidden">
+        <Sidebar
+          items={sidebarItems}
           activeView={activeView}
-          onSelect={setActiveView}
+          onSelect={(view) => {
+            setActiveView(view as AdminView);
+            setMobileOpen(false);
+          }}
           mobileOpen={mobileOpen}
           onOpenMobile={() => setMobileOpen(true)}
           onCloseMobile={() => setMobileOpen(false)}
-          escalationCount={escalations.length}
+          portalLabel="Admin Portal"
+          helpTitle="Governance Support"
+          helpDescription="Need support with escalations or platform operations?"
+          helpButtonLabel="Contact Platform Team"
+          showMobileTrigger={false}
         />
 
         <div className="min-w-0 flex-1">
-          <AdminNavbar activeView={activeView} onRefresh={refresh} isRefreshing={loading} />
+          <div className="flex h-screen flex-col overflow-hidden">
+            <Navbar
+              title={currentView.title}
+              subtitle={currentView.subtitle}
+              searchPlaceholder="Search departments, heads, escalations..."
+              searchValue={search}
+              onSearchChange={setSearch}
+              profileName={name}
+              profileSubtitle={email}
+              onProfile={() => setActiveView("overview")}
+              onSettings={refresh}
+              onLogout={logout}
+              isLoggingOut={isLoggingOut}
+              onToggleMobileMenu={() => setMobileOpen(true)}
+              mobileMenuButton={<Menu className="h-4 w-4" />}
+            />
 
-          <main className="px-4 py-6 sm:px-6 sm:py-8">
-            <div className="mx-auto w-full max-w-[1280px] space-y-6">
-              {error ? (
-                <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200">
-                  {error}
-                </p>
-              ) : null}
-              {requestId ? <p className="text-xs text-zinc-500 dark:text-zinc-400">Request ID: {requestId}</p> : null}
+            <main className="h-[calc(100vh-4rem)] overflow-y-auto p-4 sm:p-6 lg:p-8">
+              <div className="mx-auto w-full max-w-6xl space-y-6">
+                {error ? (
+                  <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200">
+                    {error}
+                  </p>
+                ) : null}
+                {loading ? <p className="text-xs text-zinc-500 dark:text-zinc-400">Refreshing data...</p> : null}
+                {requestId ? <p className="text-xs text-zinc-500 dark:text-zinc-400">Request ID: {requestId}</p> : null}
 
-              {activeView === "overview" ? (
-                <OverviewView overviewStats={overviewStats} departmentRows={departmentRows} />
-              ) : null}
+                {activeView === "overview" ? (
+                  <OverviewView overviewStats={overviewStats} departmentRows={filteredDepartmentRows} />
+                ) : null}
 
-              {activeView === "departments" ? (
-                <DepartmentManagementView
-                  departmentRows={departmentRows}
-                  departmentName={departmentName}
-                  departmentSaving={departmentSaving}
-                  departmentMessage={departmentMessage}
-                  onDepartmentNameChange={setDepartmentName}
-                  onCreateDepartment={createDepartment}
-                  onToggleDepartment={disableDepartment}
-                />
-              ) : null}
+                {activeView === "departments" ? (
+                  <DepartmentManagementView
+                    departmentRows={filteredDepartmentRows}
+                    departmentName={departmentName}
+                    departmentSaving={departmentSaving}
+                    departmentMessage={departmentMessage}
+                    onDepartmentNameChange={setDepartmentName}
+                    onCreateDepartment={createDepartment}
+                    onToggleDepartment={disableDepartment}
+                  />
+                ) : null}
 
-              {activeView === "head_registration" ? (
-                <HeadRegistrationView
-                  headRows={headRows}
-                  headName={headName}
-                  headEmail={headEmail}
-                  headPassword={headPassword}
-                  headDepartmentId={headDepartmentId}
-                  headSaving={headSaving}
-                  headMessage={headMessage}
-                  onHeadNameChange={setHeadName}
-                  onHeadEmailChange={setHeadEmail}
-                  onHeadPasswordChange={setHeadPassword}
-                  onHeadDepartmentChange={setHeadDepartmentId}
-                  onRegisterHead={registerHead}
-                />
-              ) : null}
+                {activeView === "head_registration" ? (
+                  <HeadRegistrationView
+                    headRows={filteredHeadRows}
+                    departments={departmentRows}
+                    headName={headName}
+                    headEmail={headEmail}
+                    headPassword={headPassword}
+                    headDepartmentId={headDepartmentId}
+                    headSaving={headSaving}
+                    headMessage={headMessage}
+                    onHeadNameChange={setHeadName}
+                    onHeadEmailChange={setHeadEmail}
+                    onHeadPasswordChange={setHeadPassword}
+                    onHeadDepartmentChange={setHeadDepartmentId}
+                    onRegisterHead={registerHead}
+                  />
+                ) : null}
 
-              {activeView === "escalations" ? (
-                <EscalationsView
-                  escalations={escalations}
-                  onLoadEscalations={() => void loadEscalations()}
-                  onResolveEscalation={(issueId) => void resolveEscalation(issueId)}
-                />
-              ) : null}
-            </div>
-          </main>
+                {activeView === "escalations" ? (
+                  <EscalationsView
+                    escalations={filteredEscalations}
+                    onLoadEscalations={() => void loadEscalations()}
+                    onResolveEscalation={(issueId) => void resolveEscalation(issueId)}
+                  />
+                ) : null}
+              </div>
+            </main>
+          </div>
         </div>
       </div>
     </div>

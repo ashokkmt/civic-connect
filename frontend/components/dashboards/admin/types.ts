@@ -10,6 +10,8 @@ export type ApiResponse<T = unknown> = {
   };
 };
 
+export type AdminView = "overview" | "departments" | "head_registration" | "escalations";
+
 export type EscalationItem = {
   id?: string;
   issueId?: string;
