@@ -1,13 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AuthorityHeadNavbar } from "@/components/layout/AuthorityHeadNavbar";
-import { AuthorityHeadSidebar } from "@/components/layout/AuthorityHeadSidebar";
+import {
+  AlertTriangle,
+  BarChart3,
+  CheckCheck,
+  LayoutDashboard,
+  Menu,
+  ShieldCheck,
+  Users2,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
 import { AnalyticsDashboard } from "@/components/dashboards/authority-head/AnalyticsDashboard";
 import { PendingIssuesModeration } from "@/components/dashboards/authority-head/PendingIssuesModeration";
 import { ResolvedIssuesEscalations } from "@/components/dashboards/authority-head/ResolvedIssuesEscalations";
 import { WorkerAnalytics } from "@/components/dashboards/authority-head/WorkerAnalytics";
 import { WorkerManagement } from "@/components/dashboards/authority-head/WorkerManagement";
+import { Navbar } from "@/components/layout/Navbar";
+import { Sidebar } from "@/components/layout/Sidebar";
 import type {
   HeadApiResponse,
   HeadIssue,
@@ -109,8 +119,12 @@ function buildWorkerSummaries(issues: HeadIssue[], createdWorkers: CreatedWorker
 }
 
 export function AuthorityHeadDashboard() {
+  const router = useRouter();
+
   const [activeView, setActiveView] = useState<HeadView>("dashboard");
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const [pendingIssues, setPendingIssues] = useState<HeadIssue[]>([]);
   const [departmentIssues, setDepartmentIssues] = useState<HeadIssue[]>([]);
@@ -363,24 +377,96 @@ export function AuthorityHeadDashboard() {
     [createdWorkers, departmentIssues]
   );
 
+  const navItems = useMemo(
+    () => [
+      { id: "dashboard", label: "Dashboard Overview", icon: LayoutDashboard },
+      { id: "pending_issues", label: "Pending Issues Moderation", icon: ShieldCheck, badge: `${pendingIssues.length}` },
+      { id: "worker_analytics", label: "Worker Analytics", icon: BarChart3 },
+      { id: "worker_management", label: "Worker Management", icon: Users2 },
+      { id: "resolved_issues", label: "Resolved Issues", icon: CheckCheck },
+      { id: "escalations", label: "Escalations", icon: AlertTriangle, badge: `${escalations.length}` },
+    ],
+    [escalations.length, pendingIssues.length]
+  );
+
+  const viewMeta = useMemo<Record<HeadView, { title: string; subtitle: string }>>(
+    () => ({
+      dashboard: {
+        title: "Dashboard Overview",
+        subtitle: "Real-time performance metrics and operations monitoring.",
+      },
+      pending_issues: {
+        title: "Pending Issues Moderation",
+        subtitle: "Review and approve citizen-reported infrastructure and safety concerns.",
+      },
+      worker_analytics: {
+        title: "Worker Analytics",
+        subtitle: "Compare output, pending load, and success rate across your team.",
+      },
+      worker_management: {
+        title: "Worker Management",
+        subtitle: "Assign issues, register workers, and monitor capacity in one place.",
+      },
+      resolved_issues: {
+        title: "Resolved Issues",
+        subtitle: "Review completed work and close issues awaiting confirmation.",
+      },
+      escalations: {
+        title: "Escalations",
+        subtitle: "Monitor unresolved cases and reassign critical incidents quickly.",
+      },
+    }),
+    []
+  );
+
+  const currentMeta = viewMeta[activeView];
+
+  const logout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_10%_15%,rgba(37,99,235,0.12),transparent_35%),radial-gradient(circle_at_85%_8%,rgba(6,182,212,0.10),transparent_32%)]" />
-      <div className="flex min-h-screen">
-        <AuthorityHeadSidebar
+    <div className="h-screen overflow-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+      <div className="flex h-full">
+        <Sidebar
+          items={navItems}
           activeView={activeView}
-          onSelect={setActiveView}
+          onSelect={(viewId) => setActiveView(viewId as HeadView)}
           mobileOpen={mobileOpen}
           onOpenMobile={() => setMobileOpen(true)}
           onCloseMobile={() => setMobileOpen(false)}
-          pendingCount={pendingIssues.length}
-          escalationsCount={escalations.length}
+          portalLabel="Authority Head"
+          helpTitle="Moderation Focus"
+          helpDescription="Approve reports, keep worker load balanced, and track escalations before SLA breaches."
+          helpButtonLabel="Refresh Dashboard"
+          showMobileTrigger={false}
         />
 
-        <div className="min-w-0 flex-1">
-          <AuthorityHeadNavbar activeView={activeView} onRefresh={() => void loadAll()} isRefreshing={loading} />
-          <main className="px-4 py-6 sm:px-6 sm:py-8">
-            <div className="mx-auto w-full max-w-[1260px] space-y-6">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <Navbar
+            title={currentMeta.title}
+            subtitle={currentMeta.subtitle}
+            searchPlaceholder="Search issues, workers..."
+            searchValue={search}
+            onSearchChange={setSearch}
+            profileName="Authority Head"
+            profileSubtitle="Department Portal"
+            onProfile={() => setActiveView("dashboard")}
+            onSettings={() => setActiveView("worker_management")}
+            onLogout={logout}
+            isLoggingOut={isLoggingOut}
+            onToggleMobileMenu={() => setMobileOpen(true)}
+            mobileMenuButton={<Menu className="h-4 w-4" />}
+          />
+
+          <main className="h-[calc(100vh-4rem)] overflow-y-auto p-4 sm:p-6 lg:p-8">
+            <div className="mx-auto w-full max-w-6xl space-y-6">
               {error ? (
                 <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200">
                   {error}

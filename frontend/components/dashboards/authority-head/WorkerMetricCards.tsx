@@ -16,7 +16,7 @@ export function WorkerMetricCards({
 }: WorkerMetricCardsProps) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <Card>
+      <Card className="border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <CardBody className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Total Workers</p>
@@ -26,7 +26,7 @@ export function WorkerMetricCards({
         </CardBody>
       </Card>
 
-      <Card>
+      <Card className="border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <CardBody className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Issues Assigned</p>
@@ -36,7 +36,7 @@ export function WorkerMetricCards({
         </CardBody>
       </Card>
 
-      <Card>
+      <Card className="border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <CardBody className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Issues Resolved</p>
@@ -46,7 +46,7 @@ export function WorkerMetricCards({
         </CardBody>
       </Card>
 
-      <Card>
+      <Card className="border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <CardBody className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">Issues Pending</p>

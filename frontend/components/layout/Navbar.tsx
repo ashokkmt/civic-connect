@@ -91,6 +91,8 @@ export function Navbar({
             />
           </label>
 
+          <ThemeToggle />
+
           <button
             type="button"
             className="relative rounded-lg bg-slate-100 p-2 text-slate-600 dark:bg-slate-800 dark:text-slate-300"
@@ -99,8 +101,6 @@ export function Navbar({
             <Bell className="h-4 w-4" />
             <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full border border-white bg-red-500 dark:border-slate-900" />
           </button>
-
-          <ThemeToggle />
 
           <div className="relative" ref={menuRef}>
             <button

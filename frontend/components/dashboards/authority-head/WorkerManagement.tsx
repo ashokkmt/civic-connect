@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Eye, Plus, Search } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/Card";
-import { Table } from "@/components/ui/Table";
 import { FormError } from "@/components/forms/FormError";
 import { WorkerMetricCards } from "@/components/dashboards/authority-head/WorkerMetricCards";
 import type { HeadIssue, HeadWorkerStatus, HeadWorkerSummary } from "@/components/dashboards/authority-head/types";
@@ -95,7 +94,7 @@ export function WorkerManagement({
       />
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <Card>
+        <Card className="border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <CardBody>
             <div className="space-y-4">
               <div className="flex items-start justify-between gap-3">
@@ -121,7 +120,7 @@ export function WorkerManagement({
           </CardBody>
         </Card>
 
-        <Card>
+        <Card className="border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <CardBody>
             <form className="space-y-3" onSubmit={submitAssign}>
               <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Assign Pending Issue</h2>
@@ -171,104 +170,116 @@ export function WorkerManagement({
         </Card>
       </div>
 
-      <Card>
-        <CardBody className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Worker Directory</h2>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="relative">
-                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
-                <input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search workers"
-                  className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] py-2 pl-8 pr-3 text-xs text-zinc-800 dark:text-zinc-100"
-                />
-              </label>
-              <select
-                value={statusFilter}
-                onChange={(event) => setStatusFilter(event.target.value as "ALL" | HeadWorkerStatus)}
-                className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-xs text-zinc-800 dark:text-zinc-100"
-              >
-                <option value="ALL">All statuses</option>
-                <option value="ACTIVE">Active</option>
-                <option value="IDLE">Idle</option>
-                <option value="DISABLED">Disabled</option>
-              </select>
-            </div>
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Worker Directory</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search workers"
+                className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] py-2 pl-8 pr-3 text-xs text-zinc-800 dark:text-zinc-100"
+              />
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as "ALL" | HeadWorkerStatus)}
+              className="rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-xs text-zinc-800 dark:text-zinc-100"
+            >
+              <option value="ALL">All statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="IDLE">Idle</option>
+              <option value="DISABLED">Disabled</option>
+            </select>
           </div>
+        </div>
 
-          <Table headers={["Worker Name", "Email", "Status", "Assigned Issues", "Last Active", "Actions"]}>
-            {filteredWorkers.map((worker) => (
-              <tr key={worker.workerId} className="border-b border-[var(--border)] last:border-0">
-                <td className="px-4 py-3 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{worker.workerName}</td>
-                <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">{worker.email}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase ${
-                      worker.status === "ACTIVE"
-                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
-                        : worker.status === "IDLE"
-                          ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
-                          : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
-                    }`}
-                  >
-                    {worker.status.toLowerCase()}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">{worker.assigned}</td>
-                <td className="px-4 py-3 text-sm text-zinc-600 dark:text-zinc-300">
-                  {worker.lastActiveAt ? new Date(worker.lastActiveAt).toLocaleString() : "No recent activity"}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedWorker(worker)}
-                      className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-700 transition hover:bg-[var(--surface-muted)] dark:text-zinc-200"
-                    >
-                      <Eye className="h-3 w-3" />
-                      View
-                    </button>
-                    <button
-                      type="button"
-                      disabled
-                      className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-400"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      disabled
-                      className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-400"
-                    >
-                      Delete
-                    </button>
-                    <button
-                      type="button"
-                      disabled
-                      className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-400"
-                    >
-                      Disable
-                    </button>
-                  </div>
-                </td>
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="bg-slate-50 dark:bg-slate-800/50">
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Worker Name</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Email</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Assigned Issues</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Last Active</th>
+                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Actions</th>
               </tr>
-            ))}
-            {filteredWorkers.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
-                  No workers match your current search and status filters.
-                </td>
-              </tr>
-            ) : null}
-          </Table>
-        </CardBody>
-      </Card>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {filteredWorkers.map((worker) => (
+                <tr key={worker.workerId}>
+                  <td className="px-6 py-4 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{worker.workerName}</td>
+                  <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{worker.email}</td>
+                  <td className="px-6 py-4">
+                    <span
+                      className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase ${
+                        worker.status === "ACTIVE"
+                          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                          : worker.status === "IDLE"
+                            ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                            : "bg-zinc-200 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                      }`}
+                    >
+                      {worker.status.toLowerCase()}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{worker.assigned}</td>
+                  <td className="px-6 py-4 text-sm text-zinc-600 dark:text-zinc-300">
+                    {worker.lastActiveAt ? new Date(worker.lastActiveAt).toLocaleString() : "No recent activity"}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedWorker(worker)}
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-700 transition hover:bg-[var(--surface-muted)] dark:text-zinc-200"
+                      >
+                        <Eye className="h-3 w-3" />
+                        View
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-400"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-400"
+                      >
+                        Delete
+                      </button>
+                      <button
+                        type="button"
+                        disabled
+                        className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-400"
+                      >
+                        Disable
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filteredWorkers.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                    No workers match your current search and status filters.
+                  </td>
+                </tr>
+              ) : null}
+            </tbody>
+          </table>
+        </div>
+      </section>
 
       {createOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-3 flex items-start justify-between gap-2">
               <div>
                 <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Create Worker Account</h3>
@@ -319,7 +330,7 @@ export function WorkerManagement({
 
       {selectedWorker ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4">
-          <div className="w-full max-w-lg rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-xl">
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-800 dark:bg-slate-900">
             <div className="mb-3 flex items-start justify-between gap-2">
               <div>
                 <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Worker Profile</h3>

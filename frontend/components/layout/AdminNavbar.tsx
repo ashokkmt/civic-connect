@@ -56,6 +56,8 @@ export function AdminNavbar({ activeView, onRefresh, isRefreshing }: AdminNavbar
         </div>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
+
           <button
             type="button"
             className="relative rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-2.5 text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
@@ -73,8 +75,6 @@ export function AdminNavbar({ activeView, onRefresh, isRefreshing }: AdminNavbar
             <RefreshCcw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
             {isRefreshing ? "Refreshing" : "Refresh"}
           </button>
-
-          <ThemeToggle />
 
           <button
             type="button"

@@ -1,6 +1,10 @@
-import type { HeadView } from "@/components/layout/AuthorityHeadSidebar";
-
-export type { HeadView };
+export type HeadView =
+  | "dashboard"
+  | "pending_issues"
+  | "worker_analytics"
+  | "worker_management"
+  | "resolved_issues"
+  | "escalations";
 
 export type HeadIssue = {
   id: string;
@@ -12,6 +16,7 @@ export type HeadIssue = {
   reporterId?: string;
   createdAt?: string;
   updatedAt?: string;
+  imageUrls?: string[];
   location?: {
     coordinates?: number[];
   };
