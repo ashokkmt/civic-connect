@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { FormActions } from "@/components/forms/FormActions";
+import { Camera, Info, LocateFixed, Search, SendHorizonal } from "lucide-react";
 import { FormError } from "@/components/forms/FormError";
 import { SelectField } from "@/components/forms/SelectField";
 import { TextArea } from "@/components/forms/TextArea";
@@ -166,92 +166,141 @@ export function ReportIssue({ onSuccessNavigate }: ReportIssueProps) {
   };
 
   return (
-    <form onSubmit={submit} className="space-y-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6">
-      <TextField
-        id="citizen-report-title"
-        label="Issue title"
-        value={title}
-        onChange={setTitle}
-        placeholder="e.g. Streetlight outage near bus stop"
-        required
-      />
-      <TextArea
-        id="citizen-report-description"
-        label="Description"
-        value={description}
-        onChange={setDescription}
-        placeholder="Describe what is happening, where, and how urgent it is."
-        required
-        rows={5}
-      />
-      <SelectField
-        id="citizen-report-department"
-        label="Department"
-        value={departmentId}
-        onChange={setDepartmentId}
-        options={departmentOptions.map((option) => ({ value: option.id, label: option.name }))}
-        helperText="Department list currently comes from frontend config and should match backend IDs."
-        required
-      />
+    <form onSubmit={submit} className="space-y-8">
+      <header>
+        <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">Report New Issue</h2>
+        <p className="mt-2 text-slate-600 dark:text-slate-400">
+          Help us improve your neighborhood by reporting local infrastructure or service problems.
+        </p>
+      </header>
 
-      <div className="space-y-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Location</p>
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">
-              Use your current location or click on the map to place the issue marker.
+      <div className="grid grid-cols-1 gap-8 xl:grid-cols-[2fr_1fr]">
+        <div className="space-y-6">
+          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="mb-6 inline-flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <Info className="h-5 w-5 text-sky-600" />
+              Issue Details
+            </h3>
+
+            <div className="space-y-5">
+              <TextField
+                id="citizen-report-title"
+                label="Issue title"
+                value={title}
+                onChange={setTitle}
+                placeholder="e.g., Deep pothole on Main St"
+                required
+              />
+
+              <SelectField
+                id="citizen-report-department"
+                label="Department"
+                value={departmentId}
+                onChange={setDepartmentId}
+                options={departmentOptions.map((option) => ({ value: option.id, label: option.name }))}
+                required
+              />
+
+              <TextArea
+                id="citizen-report-description"
+                label="Description"
+                value={description}
+                onChange={setDescription}
+                placeholder="Provide as much detail as possible to help our crews find and fix the issue..."
+                required
+                rows={5}
+              />
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="mb-6 inline-flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <Camera className="h-5 w-5 text-sky-600" />
+              Evidence and Photos
+            </h3>
+
+            <ImageUploader
+              value={imageUrls}
+              onChange={setImageUrls}
+              onUploadingChange={setIsUploading}
+              onError={setUploadError}
+            />
+          </section>
+        </div>
+
+        <div className="space-y-6">
+          <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <h3 className="mb-4 inline-flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+              <LocateFixed className="h-5 w-5 text-sky-600" />
+              Location
+            </h3>
+
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search for address..."
+                className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 outline-none ring-sky-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                readOnly
+              />
+            </div>
+
+            <div className="space-y-3">
+              <LocationMapPicker
+                value={locationReady ? location : null}
+                onPick={applyLocation}
+                mapHeightClassName="h-72"
+                selectedZoom={16}
+              />
+
+              <button
+                type="button"
+                onClick={detectDeviceLocation}
+                disabled={locating}
+                className="w-full rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              >
+                {locating ? "Fetching location..." : "Use Current Location"}
+              </button>
+
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+                {locationReady && location
+                  ? `Selected pin: ${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`
+                  : "No location selected yet."}
+              </p>
+            </div>
+          </section>
+
+          <section className="rounded-xl border border-sky-200 bg-sky-50 p-6 dark:border-sky-900/40 dark:bg-sky-900/20">
+            <h4 className="text-sm font-bold text-sky-700 dark:text-sky-300">Privacy Notice</h4>
+            <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+              Your report and location will be shared with the relevant city department. You can track progress in the My Issues view.
             </p>
-          </div>
+          </section>
+
+          {successMessage ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-900/20 dark:text-emerald-200">
+              {successMessage}
+            </div>
+          ) : null}
+
+          <FormError message={error ?? uploadError} />
+
           <button
-            type="button"
-            onClick={detectDeviceLocation}
-            disabled={locating}
-            className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200"
+            type="submit"
+            disabled={submitting || isUploading}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-4 text-sm font-bold text-white shadow-lg shadow-sky-600/20 transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {locating ? "Fetching location..." : "Fetch current location"}
+            Submit Report
+            <SendHorizonal className="h-4 w-4" />
           </button>
+
+          <div className="text-center text-xs text-slate-500 dark:text-slate-400">
+            <Link href="/issues" className="font-medium text-sky-700 hover:underline dark:text-sky-300">
+              Browse public issues
+            </Link>
+          </div>
         </div>
-
-        <LocationMapPicker
-          value={locationReady ? location : null}
-          onPick={applyLocation}
-          mapHeightClassName="h-72"
-          selectedZoom={16}
-        />
-
-        <p className="rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-xs text-zinc-500 dark:text-zinc-400">
-          {locationReady && location
-            ? `Selected: ${location.lat.toFixed(5)}, ${location.lng.toFixed(5)}`
-            : "No location selected yet."}
-        </p>
       </div>
-
-      <div className="space-y-2">
-        <p className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">Evidence images</p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          Upload one or more images before submission.
-        </p>
-        <ImageUploader
-          value={imageUrls}
-          onChange={setImageUrls}
-          onUploadingChange={setIsUploading}
-          onError={setUploadError}
-        />
-      </div>
-
-      {successMessage ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-900/20 dark:text-emerald-200">
-          {successMessage}
-        </div>
-      ) : null}
-
-      <FormError message={error ?? uploadError} />
-
-      <FormActions
-        submitLabel="Submit issue"
-        isSubmitting={submitting || isUploading}
-        secondaryAction={<Link href="/issues">Browse public issues</Link>}
-      />
     </form>
   );
 }
