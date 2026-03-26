@@ -1,9 +1,13 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+type Params = {
+  params: Promise<{ id: string }>;
+};
+
 const TOKEN_COOKIE = "auth_token";
 
-async function proxy(request: Request, method: "GET" | "POST") {
+async function proxy(request: Request, params: Params, method: "GET" | "PATCH" | "DELETE") {
   const backendBase = process.env.BACKEND_BASE_URL;
 
   if (!backendBase) {
@@ -21,8 +25,9 @@ async function proxy(request: Request, method: "GET" | "POST") {
     );
   }
 
+  const { id } = await params.params;
   let body: unknown = undefined;
-  if (method === "POST") {
+  if (method === "PATCH") {
     body = await request.json().catch(() => null);
     if (!body) {
       return NextResponse.json(
@@ -33,13 +38,13 @@ async function proxy(request: Request, method: "GET" | "POST") {
   }
 
   try {
-    const response = await fetch(`${backendBase}/api/v1/admin/departments${method === "GET" ? new URL(request.url).search : ""}`, {
+    const response = await fetch(`${backendBase}/api/v1/head/workers/${id}`, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
-        ...(method === "POST" ? { "Content-Type": "application/json" } : {}),
+        ...(method === "PATCH" ? { "Content-Type": "application/json" } : {}),
       },
-      ...(method === "POST" ? { body: JSON.stringify(body) } : {}),
+      ...(method === "PATCH" ? { body: JSON.stringify(body) } : {}),
     });
 
     const requestId = response.headers.get("X-Request-Id") ?? undefined;
@@ -59,10 +64,14 @@ async function proxy(request: Request, method: "GET" | "POST") {
   }
 }
 
-export async function POST(request: Request) {
-  return proxy(request, "POST");
+export async function GET(request: Request, params: Params) {
+  return proxy(request, params, "GET");
 }
 
-export async function GET(request: Request) {
-  return proxy(request, "GET");
+export async function PATCH(request: Request, params: Params) {
+  return proxy(request, params, "PATCH");
+}
+
+export async function DELETE(request: Request, params: Params) {
+  return proxy(request, params, "DELETE");
 }

@@ -1,9 +1,13 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
+type Params = {
+  params: Promise<{ id: string }>;
+};
+
 const TOKEN_COOKIE = "auth_token";
 
-async function proxy(request: Request, method: "GET" | "POST") {
+export async function POST(request: Request, { params }: Params) {
   const backendBase = process.env.BACKEND_BASE_URL;
 
   if (!backendBase) {
@@ -21,25 +25,23 @@ async function proxy(request: Request, method: "GET" | "POST") {
     );
   }
 
-  let body: unknown = undefined;
-  if (method === "POST") {
-    body = await request.json().catch(() => null);
-    if (!body) {
-      return NextResponse.json(
-        { success: false, error: { code: "INVALID_INPUT", message: "Invalid request body" } },
-        { status: 400 }
-      );
-    }
+  const { id } = await params;
+  const body = await request.json().catch(() => null);
+  if (!body) {
+    return NextResponse.json(
+      { success: false, error: { code: "INVALID_INPUT", message: "Invalid request body" } },
+      { status: 400 }
+    );
   }
 
   try {
-    const response = await fetch(`${backendBase}/api/v1/admin/departments${method === "GET" ? new URL(request.url).search : ""}`, {
-      method,
+    const response = await fetch(`${backendBase}/api/v1/head/issues/${id}/escalate`, {
+      method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
-        ...(method === "POST" ? { "Content-Type": "application/json" } : {}),
+        "Content-Type": "application/json",
       },
-      ...(method === "POST" ? { body: JSON.stringify(body) } : {}),
+      body: JSON.stringify(body),
     });
 
     const requestId = response.headers.get("X-Request-Id") ?? undefined;
@@ -57,12 +59,4 @@ async function proxy(request: Request, method: "GET" | "POST") {
       { status: 503 }
     );
   }
-}
-
-export async function POST(request: Request) {
-  return proxy(request, "POST");
-}
-
-export async function GET(request: Request) {
-  return proxy(request, "GET");
 }

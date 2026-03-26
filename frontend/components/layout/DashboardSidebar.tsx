@@ -19,9 +19,6 @@ const navForRole = (role?: string, authoritySubRole?: string): NavItem[] => {
   if (role === "CITIZEN") {
     return [
       { label: "Overview", href: "/dashboard/citizen" },
-      { label: "My Issues", href: "/dashboard/citizen/issues" },
-      { label: "Report Issue", href: "/dashboard/citizen/issues/create" },
-      { label: "Settings", href: "/dashboard/citizen/settings" },
     ];
   }
 
@@ -40,9 +37,6 @@ const navForRole = (role?: string, authoritySubRole?: string): NavItem[] => {
   if (role === "ADMIN") {
     return [
       { label: "Overview", href: "/dashboard/admin" },
-      { label: "Departments", href: "/dashboard/admin/departments" },
-      { label: "Authority Heads", href: "/dashboard/admin/authorities" },
-      { label: "Settings", href: "/dashboard/admin/settings" },
     ];
   }
 
