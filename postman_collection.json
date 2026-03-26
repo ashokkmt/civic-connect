@@ -154,7 +154,7 @@
             "url": "{{baseUrl}}/api/v1/authority/issues/{{issueId}}/resolve",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"resolutionNotes\": \"Repaired and tested\"\n}"
+              "raw": "{\n  \"resolutionNotes\": \"Repaired and tested\",\n  \"resolutionImageUrls\": [\"https://res.cloudinary.com/demo/image/upload/sample.jpg\"]\n}"
             }
           }
         },
@@ -252,6 +252,21 @@
           }
         },
         {
+          "name": "Escalate Issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/head/issues/{{issueId}}/escalate",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Issue remains unresolved after multiple attempts\"\n}"
+            }
+          }
+        },
+        {
           "name": "Register Worker",
           "request": {
             "method": "POST",
@@ -259,11 +274,66 @@
               { "key": "Authorization", "value": "Bearer {{token}}" },
               { "key": "Content-Type", "value": "application/json" }
             ],
-            "url": "{{baseUrl}}/api/v1/head/authorities",
+            "url": "{{baseUrl}}/api/v1/head/workers",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"email\": \"newworker@example.com\",\n  \"password\": \"very-strong-password\"\n}"
             }
+          }
+        },
+        {
+          "name": "List Workers",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/head/workers?limit=100&includeBlocked=true"
+          }
+        },
+        {
+          "name": "Get Worker",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/head/workers/{{workerId}}"
+          }
+        },
+        {
+          "name": "Update Worker",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/head/workers/{{workerId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Worker Name\",\n  \"email\": \"updated.worker@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Disable Worker",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/head/workers/{{workerId}}/disable"
+          }
+        },
+        {
+          "name": "Enable Worker",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/head/workers/{{workerId}}/enable"
+          }
+        },
+        {
+          "name": "Delete Worker",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/head/workers/{{workerId}}"
           }
         }
       ]
@@ -311,6 +381,22 @@
           }
         },
         {
+          "name": "List Departments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/admin/departments?limit=100"
+          }
+        },
+        {
+          "name": "Department Metrics",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/admin/departments/metrics"
+          }
+        },
+        {
           "name": "Register Authority Head",
           "request": {
             "method": "POST",
@@ -321,8 +407,16 @@
             "url": "{{baseUrl}}/api/v1/admin/authorities",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"head@example.com\",\n  \"password\": \"very-strong-password\",\n  \"departmentId\": \"{{departmentId}}\"\n}"
+              "raw": "{\n  \"name\": \"Roads Department Head\",\n  \"email\": \"head@example.com\",\n  \"password\": \"very-strong-password\",\n  \"departmentId\": \"{{departmentId}}\"\n}"
             }
+          }
+        },
+        {
+          "name": "List Authority Heads",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/admin/authorities?limit=100"
           }
         },
         {
@@ -347,6 +441,29 @@
             "method": "POST",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{baseUrl}}/api/v1/admin/issues/{{issueId}}/escalations/resolve"
+          }
+        },
+        {
+          "name": "Reassign Escalation Department",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/admin/issues/{{issueId}}/escalations/reassign-department",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"departmentId\": \"{{departmentId}}\",\n  \"reason\": \"Needs specialist department intervention\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Notify Head",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/admin/issues/{{issueId}}/escalations/notify-head"
           }
         },
         {

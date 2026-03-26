@@ -663,6 +663,145 @@ paths:
       responses:
         '200':
           description: Reassigned
+  /api/v1/head/issues/{id}/escalate:
+    post:
+      summary: Escalate issue to admin queue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+              required: [reason]
+      responses:
+        '200':
+          description: Escalated
+  /api/v1/head/workers:
+    get:
+      summary: List department workers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: includeBlocked
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Worker list
+    post:
+      summary: Register authority worker
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                password:
+                  type: string
+              required: [email, password]
+      responses:
+        '201':
+          description: Worker created
+  /api/v1/head/workers/{id}:
+    get:
+      summary: Get worker profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Worker profile
+    patch:
+      summary: Update worker profile/status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+      responses:
+        '200':
+          description: Worker updated
+    delete:
+      summary: Soft delete worker
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Worker deleted
+  /api/v1/head/workers/{id}/disable:
+    post:
+      summary: Disable worker account
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Worker disabled
+  /api/v1/head/workers/{id}/enable:
+    post:
+      summary: Enable worker account
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Worker enabled
   /api/v1/head/authorities:
     post:
       summary: Register authority worker
@@ -744,11 +883,27 @@ paths:
               properties:
                 resolutionNotes:
                   type: string
+                resolutionImageUrls:
+                  type: array
+                  items:
+                    type: string
               required: [resolutionNotes]
       responses:
         '200':
           description: Resolved
   /api/v1/admin/departments:
+    get:
+      summary: List departments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Department list
     post:
       summary: Create department
       security:
@@ -766,7 +921,27 @@ paths:
       responses:
         '201':
           description: Department created
+  /api/v1/admin/departments/metrics:
+    get:
+      summary: Department and system metrics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Department metrics
   /api/v1/admin/authorities:
+    get:
+      summary: List authority heads
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Authority head list
     post:
       summary: Register authority head
       security:
@@ -778,6 +953,8 @@ paths:
             schema:
               type: object
               properties:
+                name:
+                  type: string
                 email:
                   type: string
                 password:
@@ -828,6 +1005,46 @@ paths:
       responses:
         '200':
           description: Escalation resolved
+  /api/v1/admin/issues/{id}/escalations/reassign-department:
+    post:
+      summary: Reassign escalation to a department
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                departmentId:
+                  type: string
+                reason:
+                  type: string
+              required: [departmentId]
+      responses:
+        '200':
+          description: Escalation reassigned
+  /api/v1/admin/issues/{id}/escalations/notify-head:
+    post:
+      summary: Notify department head for escalation
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Head notified
   /api/v1/admin/flags/{flagId}/resolve:
     post:
       summary: Resolve flag
