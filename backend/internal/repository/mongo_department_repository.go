@@ -48,6 +48,30 @@ func (r *MongoDepartmentRepository) GetByID(ctx context.Context, id primitive.Ob
 	return &dept, nil
 }
 
+func (r *MongoDepartmentRepository) List(ctx context.Context, limit int64) ([]*domain.Department, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	cur, err := r.col.Find(ctx, bson.M{}, options.Find().SetLimit(limit).SetSort(bson.D{{Key: "createdAt", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	out := make([]*domain.Department, 0)
+	for cur.Next(ctx) {
+		var dept domain.Department
+		if err := cur.Decode(&dept); err != nil {
+			return nil, err
+		}
+		out = append(out, &dept)
+	}
+	if err := cur.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (r *MongoDepartmentRepository) Create(ctx context.Context, dept *domain.Department) error {
 	if dept == nil {
 		return nil

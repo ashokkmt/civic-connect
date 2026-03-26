@@ -31,6 +31,10 @@ type reassignIssueRequest struct {
 	WorkerID string `json:"workerId"`
 }
 
+type escalateIssueRequest struct {
+	Reason string `json:"reason"`
+}
+
 func (h ModerationHandler) ListPending(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
@@ -229,6 +233,39 @@ func (h ModerationHandler) Reassign(w http.ResponseWriter, r *http.Request) {
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": issue})
 }
 
+func (h ModerationHandler) Escalate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+		return
+	}
+
+	id, err := parseHeadIDFromPathWithSuffix(r.URL.Path, "/api/v1/head/issues/", "/escalate")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	var req escalateIssueRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, r, errx.New("INVALID_INPUT", "invalid request body", http.StatusBadRequest))
+		return
+	}
+
+	issue, err := h.Moderation.Escalate(r.Context(), id, principal.UserID, principal.DepartmentID, req.Reason)
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": issue})
+}
+
 func (h ModerationHandler) IssueRoutes(w http.ResponseWriter, r *http.Request) {
 	if strings.HasSuffix(r.URL.Path, "/approve") {
 		h.Approve(w, r)
@@ -244,6 +281,10 @@ func (h ModerationHandler) IssueRoutes(w http.ResponseWriter, r *http.Request) {
 	}
 	if strings.HasSuffix(r.URL.Path, "/reassign") {
 		h.Reassign(w, r)
+		return
+	}
+	if strings.HasSuffix(r.URL.Path, "/escalate") {
+		h.Escalate(w, r)
 		return
 	}
 	response.WriteError(w, r, errx.New("NOT_FOUND", "not found", http.StatusNotFound))

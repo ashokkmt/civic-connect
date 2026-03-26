@@ -10,5 +10,6 @@ import (
 
 type DepartmentRepository interface {
 	GetByID(ctx context.Context, id primitive.ObjectID) (*domain.Department, error)
+	List(ctx context.Context, limit int64) ([]*domain.Department, error)
 	Create(ctx context.Context, dept *domain.Department) error
 }

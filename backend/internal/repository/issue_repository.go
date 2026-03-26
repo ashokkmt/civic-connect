@@ -23,7 +23,7 @@ type IssueRepository interface {
 	RejectIssue(ctx context.Context, id primitive.ObjectID, adminID, departmentID, reason string, reviewedAt time.Time) error
 	AssignIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID string, assignedAt time.Time) error
 	StartIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID string, startedAt time.Time) error
-	ResolveIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID, notes string, resolvedAt time.Time) error
+	ResolveIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID, notes string, resolutionImageURLs []string, resolvedAt time.Time) error
 	ConfirmResolution(ctx context.Context, id primitive.ObjectID, reporterID string, confirmedAt time.Time) error
 	CloseIssue(ctx context.Context, id primitive.ObjectID, departmentID string, closedAt time.Time) error
 	AddSupporter(ctx context.Context, id primitive.ObjectID, userID string, allowedStatuses []domain.IssueStatus) (bool, error)
@@ -35,6 +35,10 @@ type IssueRepository interface {
 	UpdateEscalation(ctx context.Context, id primitive.ObjectID, violation bool, level int, stage string, escalatedAt *time.Time, updatedAt time.Time) error
 	ResolveEscalation(ctx context.Context, id primitive.ObjectID, updatedAt time.Time) error
 	ReassignWorker(ctx context.Context, id primitive.ObjectID, departmentID, workerID string, updatedAt time.Time) error
+	EscalateByHead(ctx context.Context, id primitive.ObjectID, departmentID, reason string, escalatedAt time.Time) error
+	ReassignDepartment(ctx context.Context, id primitive.ObjectID, newDepartmentID, reason string, updatedAt time.Time) error
+	MarkNotifiedHead(ctx context.Context, id primitive.ObjectID, actorID string, notifiedAt time.Time) error
+	CountByDepartment(ctx context.Context, departmentID string, statuses []domain.IssueStatus) (int64, error)
 }
 
 type PublicIssueFilters struct {

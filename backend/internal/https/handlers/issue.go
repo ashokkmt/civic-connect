@@ -438,18 +438,20 @@ func (h IssueHandler) CitizenIssueRoutes(w http.ResponseWriter, r *http.Request)
 }
 
 type issuePublicDTO struct {
-	ID             string             `json:"id"`
-	Title          string             `json:"title"`
-	Description    string             `json:"description"`
-	ImageURLs      []string           `json:"imageUrls,omitempty"`
-	Location       domain.GeoPoint    `json:"location"`
-	Status         domain.IssueStatus `json:"status"`
-	SupporterCount int                `json:"supporterCount"`
-	DepartmentID   string             `json:"departmentId"`
-	IsReporter     bool               `json:"isReporter"`
-	IsSupporter    bool               `json:"isSupporter"`
-	CreatedAt      string             `json:"createdAt"`
-	UpdatedAt      string             `json:"updatedAt"`
+	ID                  string             `json:"id"`
+	Title               string             `json:"title"`
+	Description         string             `json:"description"`
+	ImageURLs           []string           `json:"imageUrls,omitempty"`
+	ResolutionImageURLs []string           `json:"resolutionImageUrls,omitempty"`
+	Location            domain.GeoPoint    `json:"location"`
+	Status              domain.IssueStatus `json:"status"`
+	SupporterCount      int                `json:"supporterCount"`
+	DepartmentID        string             `json:"departmentId"`
+	EscalationReason    string             `json:"escalationReason,omitempty"`
+	IsReporter          bool               `json:"isReporter"`
+	IsSupporter         bool               `json:"isSupporter"`
+	CreatedAt           string             `json:"createdAt"`
+	UpdatedAt           string             `json:"updatedAt"`
 }
 
 func toIssuePublicDTO(issue *domain.Issue, userID string) issuePublicDTO {
@@ -470,18 +472,20 @@ func toIssuePublicDTO(issue *domain.Issue, userID string) issuePublicDTO {
 	}
 
 	return issuePublicDTO{
-		ID:             issue.ID.Hex(),
-		Title:          issue.Title,
-		Description:    issue.Description,
-		ImageURLs:      issue.ImageURLs,
-		Location:       issue.Location,
-		Status:         issue.Status,
-		SupporterCount: issue.SupporterCount,
-		DepartmentID:   issue.DepartmentID,
-		IsReporter:     isReporter,
-		IsSupporter:    isSupporter,
-		CreatedAt:      issue.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:      issue.UpdatedAt.Format(time.RFC3339),
+		ID:                  issue.ID.Hex(),
+		Title:               issue.Title,
+		Description:         issue.Description,
+		ImageURLs:           issue.ImageURLs,
+		ResolutionImageURLs: issue.Authority.ResolutionImageURLs,
+		Location:            issue.Location,
+		Status:              issue.Status,
+		SupporterCount:      issue.SupporterCount,
+		DepartmentID:        issue.DepartmentID,
+		EscalationReason:    issue.EscalationReason,
+		IsReporter:          isReporter,
+		IsSupporter:         isSupporter,
+		CreatedAt:           issue.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:           issue.UpdatedAt.Format(time.RFC3339),
 	}
 }
 

@@ -19,7 +19,8 @@ type AuthorityHandler struct {
 }
 
 type resolveIssueRequest struct {
-	ResolutionNotes string `json:"resolutionNotes"`
+	ResolutionNotes     string   `json:"resolutionNotes"`
+	ResolutionImageURLs []string `json:"resolutionImageUrls"`
 }
 
 func (h AuthorityHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -131,7 +132,7 @@ func (h AuthorityHandler) Resolve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	issue, err := h.Authority.Resolve(r.Context(), id, principal.UserID, principal.DepartmentID, req.ResolutionNotes)
+	issue, err := h.Authority.Resolve(r.Context(), id, principal.UserID, principal.DepartmentID, req.ResolutionNotes, req.ResolutionImageURLs)
 	if err != nil {
 		response.WriteError(w, r, err)
 		return

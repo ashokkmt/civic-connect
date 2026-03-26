@@ -77,8 +77,38 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	mux.Handle("/api/v1/head/issues/pending", headOnly(http.HandlerFunc(cfg.Moderation.ListPending)))
 	mux.Handle("/api/v1/head/issues/escalations", headOnly(http.HandlerFunc(cfg.Moderation.ListEscalations)))
 	mux.Handle("/api/v1/head/issues/", headOnly(http.HandlerFunc(cfg.Moderation.IssueRoutes)))
-	mux.Handle("/api/v1/admin/departments", adminOnly(http.HandlerFunc(cfg.AdminHandler.CreateDepartment)))
-	mux.Handle("/api/v1/admin/authorities", adminOnly(http.HandlerFunc(cfg.AdminHandler.RegisterAuthority)))
+	mux.Handle("/api/v1/head/workers", headOnly(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			cfg.HeadHandler.RegisterWorker(w, r)
+		case http.MethodGet:
+			cfg.HeadHandler.ListWorkers(w, r)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	})))
+	mux.Handle("/api/v1/head/workers/", headOnly(http.HandlerFunc(cfg.HeadHandler.WorkerRoutes)))
+	mux.Handle("/api/v1/admin/departments", adminOnly(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			cfg.AdminHandler.CreateDepartment(w, r)
+		case http.MethodGet:
+			cfg.AdminHandler.ListDepartments(w, r)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	})))
+	mux.Handle("/api/v1/admin/departments/metrics", adminOnly(http.HandlerFunc(cfg.AdminHandler.DepartmentsMetrics)))
+	mux.Handle("/api/v1/admin/authorities", adminOnly(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			cfg.AdminHandler.RegisterAuthority(w, r)
+		case http.MethodGet:
+			cfg.AdminHandler.ListAuthorities(w, r)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	})))
 	mux.Handle("/api/v1/admin/issues/flagged", adminOnly(http.HandlerFunc(cfg.AdminHandler.ListFlagged)))
 	mux.Handle("/api/v1/admin/issues/escalations", adminOnly(http.HandlerFunc(cfg.AdminHandler.ListEscalations)))
 	mux.Handle("/api/v1/admin/issues/", adminOnly(http.HandlerFunc(cfg.AdminHandler.IssueRoutes)))

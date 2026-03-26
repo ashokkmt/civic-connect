@@ -116,11 +116,14 @@ func main() {
 	authorityService := service.NewAuthorityService(issueRepo, priorityWeights)
 	authorityHandler := handlers.AuthorityHandler{Authority: authorityService}
 	userAdminService := service.NewUserAdminService(userRepo)
+	headHandler.Users = userAdminService
 	adminHandler := handlers.AdminHandler{
 		Departments: deptService,
 		Provision:   adminProvisioning,
 		Flags:       flagService,
 		Users:       userAdminService,
+		UserRepo:    userRepo,
+		DeptRepo:    deptRepo,
 		Issues:      issueRepo,
 		SLA:         slaService,
 	}

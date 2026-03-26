@@ -70,6 +70,70 @@ func (r *MongoUserRepository) GetByID(ctx context.Context, id string) (*domain.U
 	return &user, nil
 }
 
+func (r *MongoUserRepository) ListAuthorityHeads(ctx context.Context, limit int64) ([]*domain.User, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	cur, err := r.col.Find(ctx, bson.M{
+		"role":             string(domain.RoleAuthority),
+		"authoritySubRole": string(domain.AuthorityHead),
+	}, options.Find().SetLimit(limit).SetSort(bson.D{{Key: "createdAt", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	out := make([]*domain.User, 0)
+	for cur.Next(ctx) {
+		var user domain.User
+		if err := cur.Decode(&user); err != nil {
+			return nil, err
+		}
+		out = append(out, &user)
+	}
+	if err := cur.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (r *MongoUserRepository) ListWorkersByDepartment(ctx context.Context, departmentID string, includeBlocked bool, limit int64) ([]*domain.User, error) {
+	departmentID = strings.TrimSpace(departmentID)
+	if departmentID == "" {
+		return nil, ErrNotFound
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+	filter := bson.M{
+		"role":             string(domain.RoleAuthority),
+		"authoritySubRole": string(domain.AuthorityWorker),
+		"departmentId":     departmentID,
+	}
+	if !includeBlocked {
+		filter["blocked"] = false
+	}
+
+	cur, err := r.col.Find(ctx, filter, options.Find().SetLimit(limit).SetSort(bson.D{{Key: "createdAt", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	out := make([]*domain.User, 0)
+	for cur.Next(ctx) {
+		var user domain.User
+		if err := cur.Decode(&user); err != nil {
+			return nil, err
+		}
+		out = append(out, &user)
+	}
+	if err := cur.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (r *MongoUserRepository) Create(ctx context.Context, user *domain.User) error {
 	if user == nil {
 		return nil
@@ -125,6 +189,45 @@ func (r *MongoUserRepository) UpdateProfile(ctx context.Context, id, name, email
 	return nil
 }
 
+func (r *MongoUserRepository) UpdateWorker(ctx context.Context, id, departmentID, name, email string, blocked *bool) error {
+	id = strings.TrimSpace(id)
+	departmentID = strings.TrimSpace(departmentID)
+	if id == "" || departmentID == "" {
+		return ErrNotFound
+	}
+
+	set := bson.M{"updatedAt": time.Now().UTC()}
+	if strings.TrimSpace(name) != "" {
+		set["name"] = strings.TrimSpace(name)
+	}
+	if strings.TrimSpace(email) != "" {
+		set["email"] = normalizeEmail(email)
+	}
+	if blocked != nil {
+		set["blocked"] = *blocked
+	}
+	if len(set) == 1 {
+		return nil
+	}
+
+	res, err := r.col.UpdateOne(ctx, bson.M{
+		"_id":              id,
+		"role":             string(domain.RoleAuthority),
+		"authoritySubRole": string(domain.AuthorityWorker),
+		"departmentId":     departmentID,
+	}, bson.M{"$set": set})
+	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return ErrAlreadyExists
+		}
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *MongoUserRepository) UpdatePassword(ctx context.Context, id, passwordHash string) error {
 	id = strings.TrimSpace(id)
 	if id == "" || strings.TrimSpace(passwordHash) == "" {
@@ -156,6 +259,31 @@ func (r *MongoUserRepository) SetBlocked(ctx context.Context, id string, blocked
 
 	res, err := r.col.UpdateOne(ctx, bson.M{"_id": id}, bson.M{"$set": bson.M{
 		"blocked":   blocked,
+		"updatedAt": time.Now().UTC(),
+	}})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *MongoUserRepository) DeleteWorker(ctx context.Context, id, departmentID string) error {
+	id = strings.TrimSpace(id)
+	departmentID = strings.TrimSpace(departmentID)
+	if id == "" || departmentID == "" {
+		return ErrNotFound
+	}
+
+	res, err := r.col.UpdateOne(ctx, bson.M{
+		"_id":              id,
+		"role":             string(domain.RoleAuthority),
+		"authoritySubRole": string(domain.AuthorityWorker),
+		"departmentId":     departmentID,
+	}, bson.M{"$set": bson.M{
+		"blocked":   true,
 		"updatedAt": time.Now().UTC(),
 	}})
 	if err != nil {

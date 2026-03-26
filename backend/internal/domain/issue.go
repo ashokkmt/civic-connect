@@ -48,6 +48,9 @@ type Issue struct {
 	EscalationLevel   int                  `bson:"escalationLevel,omitempty" json:"escalationLevel,omitempty"`
 	SlaStage          string               `bson:"slaStage,omitempty" json:"slaStage,omitempty"`
 	EscalatedAt       *time.Time           `bson:"escalatedAt,omitempty" json:"escalatedAt,omitempty"`
+	EscalationReason  string               `bson:"escalationReason,omitempty" json:"escalationReason,omitempty"`
+	NotifiedHeadAt    *time.Time           `bson:"notifiedHeadAt,omitempty" json:"notifiedHeadAt,omitempty"`
+	NotifiedHeadBy    string               `bson:"notifiedHeadBy,omitempty" json:"notifiedHeadBy,omitempty"`
 	Lifecycle         LifecycleTimestamps  `bson:"lifecycle,omitempty" json:"lifecycle,omitempty"`
 	FlagsCount        int                  `bson:"flagsCount,omitempty" json:"flagsCount,omitempty"`
 	IsHidden          bool                 `bson:"isHidden,omitempty" json:"isHidden,omitempty"`
@@ -64,10 +67,11 @@ type ModerationInfo struct {
 }
 
 type AuthorityInfo struct {
-	AssignedToWorkerID string     `bson:"assignedToWorkerId,omitempty" json:"assignedToWorkerId,omitempty"`
-	StartedAt          *time.Time `bson:"startedAt,omitempty" json:"startedAt,omitempty"`
-	ResolutionNotes    string     `bson:"resolutionNotes,omitempty" json:"resolutionNotes,omitempty"`
-	ResolvedAt         *time.Time `bson:"resolvedAt,omitempty" json:"resolvedAt,omitempty"`
+	AssignedToWorkerID  string     `bson:"assignedToWorkerId,omitempty" json:"assignedToWorkerId,omitempty"`
+	StartedAt           *time.Time `bson:"startedAt,omitempty" json:"startedAt,omitempty"`
+	ResolutionNotes     string     `bson:"resolutionNotes,omitempty" json:"resolutionNotes,omitempty"`
+	ResolutionImageURLs []string   `bson:"resolutionImageUrls,omitempty" json:"resolutionImageUrls,omitempty"`
+	ResolvedAt          *time.Time `bson:"resolvedAt,omitempty" json:"resolvedAt,omitempty"`
 }
 
 type ReporterConfirmation struct {

@@ -115,7 +115,7 @@ func (s *AuthorityService) Start(ctx context.Context, id primitive.ObjectID, aut
 	return updated, nil
 }
 
-func (s *AuthorityService) Resolve(ctx context.Context, id primitive.ObjectID, authorityID, departmentID, notes string) (*domain.Issue, error) {
+func (s *AuthorityService) Resolve(ctx context.Context, id primitive.ObjectID, authorityID, departmentID, notes string, resolutionImageURLs []string) (*domain.Issue, error) {
 	if strings.TrimSpace(authorityID) == "" {
 		return nil, errx.New("UNAUTHORIZED", "missing authority", 401)
 	}
@@ -141,7 +141,7 @@ func (s *AuthorityService) Resolve(ctx context.Context, id primitive.ObjectID, a
 		return nil, errx.New("FORBIDDEN", "issue not assigned to authority", 403)
 	}
 
-	if err := s.issues.ResolveIssue(ctx, id, departmentID, authorityID, notes, time.Now()); err != nil {
+	if err := s.issues.ResolveIssue(ctx, id, departmentID, authorityID, notes, resolutionImageURLs, time.Now()); err != nil {
 		if err == repository.ErrNotFound {
 			return nil, errx.New("NOT_FOUND", "issue not found", 404)
 		}

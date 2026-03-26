@@ -406,7 +406,7 @@ func (r *MongoIssueRepository) StartIssue(ctx context.Context, id primitive.Obje
 	return nil
 }
 
-func (r *MongoIssueRepository) ResolveIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID, notes string, resolvedAt time.Time) error {
+func (r *MongoIssueRepository) ResolveIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID, notes string, resolutionImageURLs []string, resolvedAt time.Time) error {
 	filter := bson.M{
 		"_id":                          id,
 		"status":                       domain.StatusInProgress,
@@ -416,12 +416,13 @@ func (r *MongoIssueRepository) ResolveIssue(ctx context.Context, id primitive.Ob
 	}
 	update := bson.M{
 		"$set": bson.M{
-			"status":                    domain.StatusResolved,
-			"statusUpdatedAt":           resolvedAt,
-			"authority.resolutionNotes": notes,
-			"authority.resolvedAt":      resolvedAt,
-			"lifecycle.resolvedAt":      resolvedAt,
-			"updatedAt":                 resolvedAt,
+			"status":                        domain.StatusResolved,
+			"statusUpdatedAt":               resolvedAt,
+			"authority.resolutionNotes":     notes,
+			"authority.resolutionImageUrls": resolutionImageURLs,
+			"authority.resolvedAt":          resolvedAt,
+			"lifecycle.resolvedAt":          resolvedAt,
+			"updatedAt":                     resolvedAt,
 		},
 	}
 
@@ -700,4 +701,94 @@ func (r *MongoIssueRepository) ReassignWorker(ctx context.Context, id primitive.
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (r *MongoIssueRepository) EscalateByHead(ctx context.Context, id primitive.ObjectID, departmentID, reason string, escalatedAt time.Time) error {
+	res, err := r.col.UpdateOne(ctx, bson.M{
+		"_id":          id,
+		"departmentId": departmentID,
+		"status":       bson.M{"$nin": []domain.IssueStatus{domain.StatusClosed, domain.StatusRejected}},
+		"isMerged":     bson.M{"$ne": true},
+	}, bson.M{
+		"$set": bson.M{
+			"slaViolation":     true,
+			"escalationLevel":  2,
+			"slaStage":         "HEAD_ESCALATED",
+			"escalatedAt":      escalatedAt,
+			"escalationReason": reason,
+			"updatedAt":        escalatedAt,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *MongoIssueRepository) ReassignDepartment(ctx context.Context, id primitive.ObjectID, newDepartmentID, reason string, updatedAt time.Time) error {
+	set := bson.M{
+		"departmentId":         newDepartmentID,
+		"escalationReason":     reason,
+		"updatedAt":            updatedAt,
+		"authority.startedAt":  nil,
+		"authority.resolvedAt": nil,
+	}
+
+	res, err := r.col.UpdateOne(ctx, bson.M{
+		"_id":             id,
+		"isMerged":        bson.M{"$ne": true},
+		"escalationLevel": bson.M{"$gt": 0},
+		"slaViolation":    true,
+	}, bson.M{
+		"$set": set,
+		"$unset": bson.M{
+			"authority.assignedToWorkerId": "",
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *MongoIssueRepository) MarkNotifiedHead(ctx context.Context, id primitive.ObjectID, actorID string, notifiedAt time.Time) error {
+	res, err := r.col.UpdateOne(ctx, bson.M{
+		"_id":             id,
+		"isMerged":        bson.M{"$ne": true},
+		"escalationLevel": bson.M{"$gt": 0},
+	}, bson.M{
+		"$set": bson.M{
+			"notifiedHeadAt": notifiedAt,
+			"notifiedHeadBy": actorID,
+			"updatedAt":      notifiedAt,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (r *MongoIssueRepository) CountByDepartment(ctx context.Context, departmentID string, statuses []domain.IssueStatus) (int64, error) {
+	filter := bson.M{
+		"departmentId": departmentID,
+		"isMerged":     bson.M{"$ne": true},
+	}
+	if len(statuses) > 0 {
+		filter["status"] = bson.M{"$in": statuses}
+	}
+	count, err := r.col.CountDocuments(ctx, filter)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
 }

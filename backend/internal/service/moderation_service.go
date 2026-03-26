@@ -224,3 +224,30 @@ func (s *ModerationService) ReassignEscalated(ctx context.Context, id primitive.
 	}
 	return updated, nil
 }
+
+func (s *ModerationService) Escalate(ctx context.Context, id primitive.ObjectID, headID, departmentID, reason string) (*domain.Issue, error) {
+	if strings.TrimSpace(headID) == "" {
+		return nil, errx.New("UNAUTHORIZED", "missing authority head", 401)
+	}
+	if strings.TrimSpace(departmentID) == "" {
+		return nil, errx.New("INVALID_INPUT", "departmentId is required", 400)
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return nil, errx.New("INVALID_INPUT", "escalation reason is required", 400)
+	}
+
+	now := time.Now()
+	if err := s.issues.EscalateByHead(ctx, id, departmentID, reason, now); err != nil {
+		if err == repository.ErrNotFound {
+			return nil, errx.New("NOT_FOUND", "issue not found or not eligible for escalation", 404)
+		}
+		return nil, errx.New("INTERNAL_ERROR", "could not escalate issue", 500)
+	}
+
+	updated, err := s.issues.GetByID(ctx, id)
+	if err != nil {
+		return nil, errx.New("NOT_FOUND", "issue not found", 404)
+	}
+	return updated, nil
+}

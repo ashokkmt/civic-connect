@@ -25,7 +25,8 @@ func NewAdminProvisioningService(users repository.UserRepository, depts reposito
 	return &AdminProvisioningService{users: users, depts: depts}
 }
 
-func (s *AdminProvisioningService) RegisterAuthority(ctx context.Context, email, password, departmentID string) (*domain.User, error) {
+func (s *AdminProvisioningService) RegisterAuthority(ctx context.Context, name, email, password, departmentID string) (*domain.User, error) {
+	name = strings.TrimSpace(name)
 	email = strings.TrimSpace(strings.ToLower(email))
 	departmentID = strings.TrimSpace(departmentID)
 	if email == "" || password == "" {
@@ -65,6 +66,7 @@ func (s *AdminProvisioningService) RegisterAuthority(ctx context.Context, email,
 	now := time.Now().UTC()
 	user := &domain.User{
 		ID:               newProvisionedID(),
+		Name:             name,
 		Email:            email,
 		PasswordHash:     string(hash),
 		Role:             domain.RoleAuthority,
