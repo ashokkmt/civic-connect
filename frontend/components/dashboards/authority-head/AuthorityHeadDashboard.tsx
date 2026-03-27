@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   BarChart3,
   CheckCheck,
+  ClipboardList,
   LayoutDashboard,
   Menu,
   ShieldCheck,
@@ -124,6 +125,7 @@ export function AuthorityHeadDashboard() {
 
   const [approveForm, setApproveForm] = useState<Record<string, { severity: string; workerId: string }>>({});
   const [rejectForm, setRejectForm] = useState<Record<string, string>>({});
+  const [selectedPendingIssueId, setSelectedPendingIssueId] = useState<string | null>(null);
 
   const [createWorkerLoading, setCreateWorkerLoading] = useState(false);
   const [createWorkerError, setCreateWorkerError] = useState<string | null>(null);
@@ -416,17 +418,33 @@ export function AuthorityHeadDashboard() {
 
   const workerMetrics = useMemo(() => buildWorkerMetrics(departmentIssues), [departmentIssues]);
   const workerSummaries = useMemo(() => buildWorkerSummaries(departmentIssues, workers), [departmentIssues, workers]);
+  const availableWorkers = useMemo(() => {
+    const busyWorkerIds = new Set(
+      departmentIssues
+        .filter((issue) => issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS")
+        .map((issue) => issue.authority?.assignedToWorkerId)
+        .filter((workerId): workerId is string => Boolean(workerId))
+    );
+
+    return workers.filter((worker) => !worker.blocked && !busyWorkerIds.has(worker.id));
+  }, [departmentIssues, workers]);
 
   const navItems = useMemo(
     () => [
       { id: "dashboard", label: "Dashboard Overview", icon: LayoutDashboard },
       { id: "pending_issues", label: "Pending Issues Moderation", icon: ShieldCheck, badge: `${pendingIssues.length}` },
+      {
+        id: "assigned_issues",
+        label: "Assigned Issues",
+        icon: ClipboardList,
+        badge: `${departmentIssues.filter((issue) => issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS").length}`,
+      },
       { id: "worker_analytics", label: "Worker Analytics", icon: BarChart3 },
       { id: "worker_management", label: "Worker Management", icon: Users2 },
       { id: "resolved_issues", label: "Resolved Issues", icon: CheckCheck },
       { id: "escalations", label: "Escalations", icon: AlertTriangle, badge: `${escalations.length}` },
     ],
-    [escalations.length, pendingIssues.length]
+    [departmentIssues, escalations.length, pendingIssues.length]
   );
 
   const viewMeta = useMemo<Record<HeadView, { title: string; subtitle: string }>>(
@@ -438,6 +456,10 @@ export function AuthorityHeadDashboard() {
       pending_issues: {
         title: "Pending Issues Moderation",
         subtitle: "Review and approve citizen-reported infrastructure and safety concerns.",
+      },
+      assigned_issues: {
+        title: "Assigned Issues",
+        subtitle: "Track approved issues that are currently assigned or in progress.",
       },
       worker_analytics: {
         title: "Worker Analytics",
@@ -523,10 +545,11 @@ export function AuthorityHeadDashboard() {
                   pendingIssues={pendingIssues}
                   loading={loading}
                   error={error}
-                  requestId={requestId}
                   busyId={busyId}
                   approveForm={approveForm}
                   rejectForm={rejectForm}
+                  availableWorkers={availableWorkers}
+                  selectedIssueId={selectedPendingIssueId}
                   onApproveFormChange={(issueId, field, value) =>
                     setApproveForm((prev) => ({
                       ...prev,
@@ -542,8 +565,23 @@ export function AuthorityHeadDashboard() {
                       [issueId]: value,
                     }))
                   }
+                  onSelectIssue={setSelectedPendingIssueId}
                   onApprove={approveIssue}
                   onReject={rejectIssue}
+                />
+              ) : null}
+
+              {activeView === "assigned_issues" ? (
+                <ResolvedIssuesEscalations
+                  issues={departmentIssues}
+                  escalations={escalations}
+                  closeLoadingId={closeLoadingId}
+                  reassignLoadingId={reassignLoadingId}
+                  escalateLoadingId={escalateLoadingId}
+                  onCloseIssue={closeIssue}
+                  onReassignIssue={reassignIssue}
+                  onEscalateIssue={escalateIssue}
+                  mode="assigned"
                 />
               ) : null}
 

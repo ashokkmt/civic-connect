@@ -1,6 +1,7 @@
 export type HeadView =
   | "dashboard"
   | "pending_issues"
+  | "assigned_issues"
   | "worker_analytics"
   | "worker_management"
   | "resolved_issues"
@@ -14,6 +15,9 @@ export type HeadIssue = {
   departmentId?: string;
   category?: string;
   reporterId?: string;
+  reporterName?: string;
+  reporterEmail?: string;
+  severity?: string;
   createdAt?: string;
   updatedAt?: string;
   imageUrls?: string[];
@@ -22,6 +26,8 @@ export type HeadIssue = {
   };
   authority?: {
     assignedToWorkerId?: string;
+    startedAt?: string;
+    deadlineAt?: string;
     resolvedAt?: string;
   };
   escalationReason?: string;

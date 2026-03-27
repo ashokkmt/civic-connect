@@ -107,12 +107,22 @@ export function AuthorityWorkerDashboard() {
     }
   }, [inProgressIssues, selectedIssueId]);
 
-  const startIssue = async (issueId: string) => {
+  const startIssue = async (issueId: string, deadlineAt: string) => {
     setActionLoadingId(issueId);
     setError(null);
 
+    if (!deadlineAt.trim()) {
+      setError("Deadline date is required before starting work.");
+      setActionLoadingId(null);
+      return;
+    }
+
     try {
-      const response = await fetch(`/api/worker/assigned/${issueId}/start`, { method: "POST" });
+      const response = await fetch(`/api/worker/assigned/${issueId}/start`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deadlineAt }),
+      });
       const payload = (await response.json()) as WorkerResponse;
       setRequestId(payload.requestId ?? null);
 

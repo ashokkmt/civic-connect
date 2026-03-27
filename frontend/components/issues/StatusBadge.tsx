@@ -3,7 +3,7 @@ type StatusBadgeProps = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  PENDING_APPROVAL: "bg-blue-50 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200",
+  PENDING_APPROVAL: "border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800/50 dark:bg-amber-900/30 dark:text-amber-200",
   ASSIGNED: "bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300",
   IN_PROGRESS: "bg-orange-50 text-orange-700 dark:bg-orange-900/40 dark:text-orange-200",
   RESOLVED: "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-200",

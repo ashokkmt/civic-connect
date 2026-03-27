@@ -12,9 +12,17 @@ export type WorkerIssue = {
   updatedAt?: string;
   priority?: string;
   severity?: string;
+  imageUrls?: string[];
+  resolutionImageUrls?: string[];
   location?: {
     type?: string;
     coordinates?: number[];
+  };
+  authority?: {
+    assignedToWorkerId?: string;
+    startedAt?: string;
+    deadlineAt?: string;
+    resolvedAt?: string;
   };
 };
 
@@ -23,6 +31,7 @@ export type WorkerResponse = {
   requestId?: string;
   data?: {
     items?: WorkerIssue[];
+    item?: WorkerIssue;
   };
   error?: {
     message?: string;

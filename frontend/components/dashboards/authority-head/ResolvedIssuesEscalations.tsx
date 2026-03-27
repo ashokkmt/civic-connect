@@ -13,7 +13,7 @@ type ResolvedIssuesEscalationsProps = {
   onCloseIssue: (issueId: string) => Promise<void>;
   onReassignIssue: (issueId: string, workerId: string) => Promise<void>;
   onEscalateIssue: (issueId: string, reason: string) => Promise<void>;
-  mode: "resolved" | "escalations";
+  mode: "assigned" | "resolved" | "escalations";
 };
 
 function dateLabel(value?: string) {
@@ -45,11 +45,53 @@ export function ResolvedIssuesEscalations({
   const resolvedLike = issues.filter(
     (issue) => issue.status === "RESOLVED" || issue.status === "AWAITING_HEAD_CLOSURE" || issue.status === "CLOSED"
   );
+  const assignedLike = issues.filter((issue) => issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS");
   const stalledEscalations = escalations.filter((issue) => issue.status !== "CLOSED").length;
 
   return (
     <section className="space-y-6">
       <FormError message={localError} />
+
+      {mode === "assigned" ? (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Assigned & Active Department Issues</h2>
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-800/50">
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Issue ID</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Title</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Worker</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Started</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Deadline</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {assignedLike.map((issue) => (
+                  <tr key={issue.id}>
+                    <td className="px-6 py-4 text-xs font-semibold text-blue-600 dark:text-blue-300">{issue.id}</td>
+                    <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{issue.title || "Untitled issue"}</td>
+                    <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{issue.authority?.assignedToWorkerId ?? "-"}</td>
+                    <td className="px-6 py-4">
+                      <StatusBadge status={issue.status} />
+                    </td>
+                    <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{dateLabel(issue.authority?.startedAt)}</td>
+                    <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{dateLabel(issue.authority?.deadlineAt)}</td>
+                  </tr>
+                ))}
+                {assignedLike.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                      No assigned or in-progress department issues yet.
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
 
       {mode === "resolved" ? (
         <section className="space-y-3">

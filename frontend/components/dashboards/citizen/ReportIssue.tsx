@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Camera, Info, LocateFixed, Search, SendHorizonal } from "lucide-react";
 import { FormError } from "@/components/forms/FormError";
 import { SelectField } from "@/components/forms/SelectField";
@@ -12,7 +12,6 @@ import { TextField } from "@/components/forms/TextField";
 import { ImageUploader } from "@/components/upload/ImageUploader";
 import { useLocation } from "@/lib/location/context";
 import { isValidLocation } from "@/lib/location/validation";
-import { departmentOptions } from "@/lib/config/departments";
 import type { Location } from "@/lib/location/types";
 
 const LocationMapPicker = dynamic(
@@ -31,6 +30,18 @@ type CreateResponse = {
   error?: { message?: string };
 };
 
+type DepartmentsResponse = {
+  success: boolean;
+  data?: { items?: Array<{ id: string; name: string }> };
+  error?: { message?: string };
+};
+
+type LocationSearchResponse = {
+  success: boolean;
+  data?: { items?: Array<{ label: string; lat: number; lng: number }> };
+  error?: { message?: string };
+};
+
 type ReportIssueProps = {
   onSuccessNavigate?: (viewId: "my_issues") => void;
 };
@@ -42,11 +53,18 @@ export function ReportIssue({ onSuccessNavigate }: ReportIssueProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [departmentId, setDepartmentId] = useState(departmentOptions[0]?.id ?? "");
+  const [departmentId, setDepartmentId] = useState("");
+  const [departments, setDepartments] = useState<Array<{ id: string; name: string }>>([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [locationQuery, setLocationQuery] = useState("");
+  const [searchingLocation, setSearchingLocation] = useState(false);
+  const [locationResults, setLocationResults] = useState<Array<{ label: string; lat: number; lng: number }>>([]);
+  const [latInput, setLatInput] = useState("");
+  const [lngInput, setLngInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -59,6 +77,76 @@ export function ReportIssue({ onSuccessNavigate }: ReportIssueProps) {
       return;
     }
     setError(null);
+  };
+
+  useEffect(() => {
+    if (locationReady && location) {
+      setLatInput(String(location.lat));
+      setLngInput(String(location.lng));
+    }
+  }, [location, locationReady]);
+
+  useEffect(() => {
+    const loadDepartments = async () => {
+      setDepartmentsLoading(true);
+      try {
+        const response = await fetch("/api/departments?limit=200", { method: "GET" });
+        const payload = (await response.json()) as DepartmentsResponse;
+        if (!response.ok || !payload.success) {
+          return;
+        }
+
+        const items = payload.data?.items ?? [];
+        setDepartments(items);
+        if (!departmentId && items.length > 0) {
+          setDepartmentId(items[0].id);
+        }
+      } catch {
+        // Keep form usable even if departments lookup fails.
+      } finally {
+        setDepartmentsLoading(false);
+      }
+    };
+
+    void loadDepartments();
+  }, [departmentId]);
+
+  const searchLocation = async () => {
+    const query = locationQuery.trim();
+    if (!query) {
+      setLocationResults([]);
+      return;
+    }
+
+    setSearchingLocation(true);
+    try {
+      const response = await fetch(`/api/location/search?q=${encodeURIComponent(query)}&limit=5`, {
+        method: "GET",
+      });
+      const payload = (await response.json()) as LocationSearchResponse;
+      if (!response.ok || !payload.success) {
+        setLocationResults([]);
+        setError(payload.error?.message ?? "Unable to search location.");
+        return;
+      }
+      setLocationResults(payload.data?.items ?? []);
+    } catch {
+      setLocationResults([]);
+      setError("Unable to search location.");
+    } finally {
+      setSearchingLocation(false);
+    }
+  };
+
+  const applyManualCoordinates = () => {
+    const lat = Number(latInput);
+    const lng = Number(lngInput);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      setError("Latitude and longitude must be valid numbers.");
+      return;
+    }
+
+    applyLocation({ lat, lng });
   };
 
   const detectDeviceLocation = () => {
@@ -197,8 +285,13 @@ export function ReportIssue({ onSuccessNavigate }: ReportIssueProps) {
                 label="Department"
                 value={departmentId}
                 onChange={setDepartmentId}
-                options={departmentOptions.map((option) => ({ value: option.id, label: option.name }))}
+                options={
+                  departments.length > 0
+                    ? departments.map((option) => ({ value: option.id, label: option.name }))
+                    : [{ value: "", label: departmentsLoading ? "Loading departments..." : "No departments available" }]
+                }
                 required
+                helperText="Fetched from live department list"
               />
 
               <TextArea
@@ -225,6 +318,31 @@ export function ReportIssue({ onSuccessNavigate }: ReportIssueProps) {
               onUploadingChange={setIsUploading}
               onError={setUploadError}
             />
+
+            {successMessage ? (
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-900/20 dark:text-emerald-200">
+                {successMessage}
+              </div>
+            ) : null}
+
+            <div className="mt-4 flex justify-center">
+              <div className="w-full max-w-md space-y-3 text-center">
+                <FormError message={error ?? uploadError} />
+                <button
+                  type="submit"
+                  disabled={submitting || isUploading}
+                  className="mx-auto flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-4 text-sm font-bold text-white shadow-lg shadow-sky-600/20 transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Submit Report
+                  <SendHorizonal className="h-4 w-4" />
+                </button>
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  <Link href="/issues" className="font-medium text-sky-700 hover:underline dark:text-sky-300">
+                    Browse public issues
+                  </Link>
+                </div>
+              </div>
+            </div>
           </section>
         </div>
 
@@ -240,9 +358,75 @@ export function ReportIssue({ onSuccessNavigate }: ReportIssueProps) {
               <input
                 type="text"
                 placeholder="Search for address..."
+                value={locationQuery}
+                onChange={(event) => setLocationQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    void searchLocation();
+                  }
+                }}
                 className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 outline-none ring-sky-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
-                readOnly
               />
+            </div>
+
+            <div className="mb-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => void searchLocation()}
+                disabled={searchingLocation}
+                className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {searchingLocation ? "Searching..." : "Search"}
+              </button>
+            </div>
+
+            {locationResults.length > 0 ? (
+              <div className="mb-4 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-800/60">
+                <ul className="space-y-1">
+                  {locationResults.map((result) => (
+                    <li key={`${result.lat},${result.lng}`}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          applyLocation({ lat: result.lat, lng: result.lng });
+                          setLocationQuery(result.label);
+                          setLocationResults([]);
+                        }}
+                        className="w-full rounded-md px-2 py-1.5 text-left text-xs text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"
+                      >
+                        {result.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <input
+                type="number"
+                step="any"
+                value={latInput}
+                onChange={(event) => setLatInput(event.target.value)}
+                placeholder="Latitude"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-sky-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              />
+              <input
+                type="number"
+                step="any"
+                value={lngInput}
+                onChange={(event) => setLngInput(event.target.value)}
+                placeholder="Longitude"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 outline-none ring-sky-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              />
+              <button
+                type="button"
+                onClick={applyManualCoordinates}
+                className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              >
+                Apply Manual Coordinates
+              </button>
             </div>
 
             <div className="space-y-3">
@@ -276,29 +460,6 @@ export function ReportIssue({ onSuccessNavigate }: ReportIssueProps) {
               Your report and location will be shared with the relevant city department. You can track progress in the My Issues view.
             </p>
           </section>
-
-          {successMessage ? (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-900/20 dark:text-emerald-200">
-              {successMessage}
-            </div>
-          ) : null}
-
-          <FormError message={error ?? uploadError} />
-
-          <button
-            type="submit"
-            disabled={submitting || isUploading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-sky-600 py-4 text-sm font-bold text-white shadow-lg shadow-sky-600/20 transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            Submit Report
-            <SendHorizonal className="h-4 w-4" />
-          </button>
-
-          <div className="text-center text-xs text-slate-500 dark:text-slate-400">
-            <Link href="/issues" className="font-medium text-sky-700 hover:underline dark:text-sky-300">
-              Browse public issues
-            </Link>
-          </div>
         </div>
       </div>
     </form>

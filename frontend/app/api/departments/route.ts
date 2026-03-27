@@ -1,13 +1,9 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
-type Params = {
-  params: Promise<{ id: string }>;
-};
-
 const TOKEN_COOKIE = "auth_token";
 
-export async function POST(request: Request, { params }: Params) {
+export async function GET(request: Request) {
   const backendBase = process.env.BACKEND_BASE_URL;
 
   if (!backendBase) {
@@ -25,34 +21,22 @@ export async function POST(request: Request, { params }: Params) {
     );
   }
 
-  const { id } = await params;
-  const body = await request.json().catch(() => null);
-  if (!body) {
-    return NextResponse.json(
-      { success: false, error: { code: "INVALID_INPUT", message: "Invalid request body" } },
-      { status: 400 }
-    );
-  }
+  const params = new URLSearchParams(new URL(request.url).search);
 
   try {
-    const response = await fetch(`${backendBase}/api/v1/authority/issues/${id}/start`, {
-      method: "POST",
+    const response = await fetch(`${backendBase}/api/v1/departments${params.toString() ? `?${params.toString()}` : ""}`, {
+      method: "GET",
       headers: {
         Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
     });
 
-    const requestId = response.headers.get("X-Request-Id") ?? undefined;
     const payload = await response.json().catch(() => ({
       success: false,
       error: { code: "INVALID_RESPONSE", message: "Backend returned invalid JSON" },
     }));
 
-    return NextResponse.json(requestId ? { ...payload, requestId } : payload, {
-      status: response.status || 500,
-    });
+    return NextResponse.json(payload, { status: response.status || 500 });
   } catch {
     return NextResponse.json(
       { success: false, error: { code: "BACKEND_UNAVAILABLE", message: "Backend is unreachable" } },
