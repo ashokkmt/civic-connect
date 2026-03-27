@@ -5,7 +5,9 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
+	"civic/internal/domain"
 	"civic/internal/errx"
 	"civic/internal/https/middleware"
 	"civic/internal/https/response"
@@ -21,6 +23,10 @@ type AuthorityHandler struct {
 type resolveIssueRequest struct {
 	ResolutionNotes     string   `json:"resolutionNotes"`
 	ResolutionImageURLs []string `json:"resolutionImageUrls"`
+}
+
+type startIssueRequest struct {
+	DeadlineAt string `json:"deadlineAt"`
 }
 
 func (h AuthorityHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -45,13 +51,41 @@ func (h AuthorityHandler) List(w http.ResponseWriter, r *http.Request) {
 		limit = parsed
 	}
 
-	issues, err := h.Authority.ListByDepartment(r.Context(), principal.DepartmentID, principal.UserID, limit)
+	isHead := strings.EqualFold(principal.AuthoritySubRole, string(domain.AuthorityHead))
+	issues, err := h.Authority.ListByDepartment(r.Context(), principal.DepartmentID, principal.UserID, isHead, limit)
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
 	}
 
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"items": issues})
+}
+
+func (h AuthorityHandler) GetByID(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+		return
+	}
+
+	id, err := parseIDFromPath(r.URL.Path, "/api/v1/authority/issues/")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	issue, err := h.Authority.GetByID(r.Context(), id, principal.DepartmentID, principal.UserID, principal.AuthoritySubRole)
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": issue})
 }
 
 func (h AuthorityHandler) Assign(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +133,19 @@ func (h AuthorityHandler) Start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	issue, err := h.Authority.Start(r.Context(), id, principal.UserID, principal.DepartmentID)
+	var req startIssueRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, r, errx.New("INVALID_INPUT", "invalid request body", http.StatusBadRequest))
+		return
+	}
+
+	deadlineAt, err := parseDeadline(req.DeadlineAt)
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	issue, err := h.Authority.Start(r.Context(), id, principal.UserID, principal.DepartmentID, deadlineAt)
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
@@ -142,6 +188,10 @@ func (h AuthorityHandler) Resolve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h AuthorityHandler) IssueRoutes(w http.ResponseWriter, r *http.Request) {
+	if !strings.Contains(strings.TrimPrefix(r.URL.Path, "/api/v1/authority/issues/"), "/") {
+		h.GetByID(w, r)
+		return
+	}
 	if strings.HasSuffix(r.URL.Path, "/assign") {
 		h.Assign(w, r)
 		return
@@ -155,6 +205,24 @@ func (h AuthorityHandler) IssueRoutes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.WriteError(w, r, errx.New("NOT_FOUND", "not found", http.StatusNotFound))
+}
+
+func parseDeadline(raw string) (*time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, errx.New("INVALID_INPUT", "deadlineAt is required", http.StatusBadRequest)
+	}
+
+	if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
+		return &parsed, nil
+	}
+
+	if parsed, err := time.Parse("2006-01-02", raw); err == nil {
+		deadline := time.Date(parsed.Year(), parsed.Month(), parsed.Day(), 23, 59, 59, 0, time.UTC)
+		return &deadline, nil
+	}
+
+	return nil, errx.New("INVALID_INPUT", "deadlineAt must be RFC3339 or YYYY-MM-DD", http.StatusBadRequest)
 }
 
 func parseAuthorityIDFromPathWithSuffix(path, prefix, suffix string) (primitive.ObjectID, error) {

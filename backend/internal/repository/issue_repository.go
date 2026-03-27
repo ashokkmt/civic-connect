@@ -22,7 +22,7 @@ type IssueRepository interface {
 	ApproveIssue(ctx context.Context, id primitive.ObjectID, adminID, departmentID, severity, workerID string, reviewedAt time.Time) error
 	RejectIssue(ctx context.Context, id primitive.ObjectID, adminID, departmentID, reason string, reviewedAt time.Time) error
 	AssignIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID string, assignedAt time.Time) error
-	StartIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID string, startedAt time.Time) error
+	StartIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID string, startedAt time.Time, deadlineAt *time.Time) error
 	ResolveIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID, notes string, resolutionImageURLs []string, resolvedAt time.Time) error
 	ConfirmResolution(ctx context.Context, id primitive.ObjectID, reporterID string, confirmedAt time.Time) error
 	CloseIssue(ctx context.Context, id primitive.ObjectID, departmentID string, closedAt time.Time) error
@@ -32,6 +32,7 @@ type IssueRepository interface {
 	AdjustFlagsCount(ctx context.Context, id primitive.ObjectID, delta int, updatedAt time.Time) error
 	ListFlagged(ctx context.Context, limit int64) ([]*domain.Issue, error)
 	ListEscalated(ctx context.Context, departmentID string, limit int64) ([]*domain.Issue, error)
+	ListDeadlineOverdueActive(ctx context.Context, now time.Time, limit int64) ([]*domain.Issue, error)
 	UpdateEscalation(ctx context.Context, id primitive.ObjectID, violation bool, level int, stage string, escalatedAt *time.Time, updatedAt time.Time) error
 	ResolveEscalation(ctx context.Context, id primitive.ObjectID, updatedAt time.Time) error
 	ReassignWorker(ctx context.Context, id primitive.ObjectID, departmentID, workerID string, updatedAt time.Time) error

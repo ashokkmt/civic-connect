@@ -26,13 +26,13 @@ func NewAuthorityService(issues repository.IssueRepository, weights priority.Wei
 	return &AuthorityService{issues: issues, weights: weights}
 }
 
-func (s *AuthorityService) ListByDepartment(ctx context.Context, departmentID, authorityID string, limit int64) ([]*domain.Issue, error) {
+func (s *AuthorityService) ListByDepartment(ctx context.Context, departmentID, authorityID string, isHead bool, limit int64) ([]*domain.Issue, error) {
 	departmentID = strings.TrimSpace(departmentID)
 	authorityID = strings.TrimSpace(authorityID)
 	if departmentID == "" {
 		return nil, errx.New("INVALID_INPUT", "departmentId is required", 400)
 	}
-	if authorityID == "" {
+	if !isHead && authorityID == "" {
 		return nil, errx.New("UNAUTHORIZED", "missing authority", 401)
 	}
 	if limit <= 0 {
@@ -43,7 +43,11 @@ func (s *AuthorityService) ListByDepartment(ctx context.Context, departmentID, a
 		domain.StatusAssigned,
 		domain.StatusInProgress,
 	}
-	issues, err := s.issues.ListAuthorityByDepartment(ctx, departmentID, authorityID, statuses, limit)
+	workerFilter := authorityID
+	if isHead {
+		workerFilter = ""
+	}
+	issues, err := s.issues.ListAuthorityByDepartment(ctx, departmentID, workerFilter, statuses, limit)
 	if err != nil {
 		return nil, errx.New("INTERNAL_ERROR", "could not list authority issues", 500)
 	}
@@ -74,11 +78,40 @@ func (s *AuthorityService) ListByDepartment(ctx context.Context, departmentID, a
 	return issues, nil
 }
 
+func (s *AuthorityService) GetByID(ctx context.Context, id primitive.ObjectID, departmentID, authorityID, authoritySubRole string) (*domain.Issue, error) {
+	departmentID = strings.TrimSpace(departmentID)
+	authorityID = strings.TrimSpace(authorityID)
+	authoritySubRole = strings.TrimSpace(authoritySubRole)
+
+	if departmentID == "" {
+		return nil, errx.New("INVALID_INPUT", "departmentId is required", 400)
+	}
+	if authorityID == "" {
+		return nil, errx.New("UNAUTHORIZED", "missing authority", 401)
+	}
+
+	issue, err := s.issues.GetByID(ctx, id)
+	if err != nil {
+		return nil, errx.New("NOT_FOUND", "issue not found", 404)
+	}
+	if issue.IsMerged || issue.DepartmentID != departmentID {
+		return nil, errx.New("NOT_FOUND", "issue not found", 404)
+	}
+
+	if authoritySubRole == string(domain.AuthorityWorker) {
+		if issue.Authority.AssignedToWorkerID != authorityID {
+			return nil, errx.New("FORBIDDEN", "issue not assigned to authority", 403)
+		}
+	}
+
+	return issue, nil
+}
+
 func (s *AuthorityService) Assign(ctx context.Context, id primitive.ObjectID, authorityID, departmentID string) (*domain.Issue, error) {
 	return nil, errx.New("FORBIDDEN", "assignment occurs during head approval", 403)
 }
 
-func (s *AuthorityService) Start(ctx context.Context, id primitive.ObjectID, authorityID, departmentID string) (*domain.Issue, error) {
+func (s *AuthorityService) Start(ctx context.Context, id primitive.ObjectID, authorityID, departmentID string, deadlineAt *time.Time) (*domain.Issue, error) {
 	if strings.TrimSpace(authorityID) == "" {
 		return nil, errx.New("UNAUTHORIZED", "missing authority", 401)
 	}
@@ -100,8 +133,14 @@ func (s *AuthorityService) Start(ctx context.Context, id primitive.ObjectID, aut
 	if issue.Authority.AssignedToWorkerID != authorityID {
 		return nil, errx.New("FORBIDDEN", "issue not assigned to authority", 403)
 	}
+	if deadlineAt == nil {
+		return nil, errx.New("INVALID_INPUT", "deadlineAt is required", 400)
+	}
+	if deadlineAt.Before(time.Now()) {
+		return nil, errx.New("INVALID_INPUT", "deadlineAt must be in the future", 400)
+	}
 
-	if err := s.issues.StartIssue(ctx, id, departmentID, authorityID, time.Now()); err != nil {
+	if err := s.issues.StartIssue(ctx, id, departmentID, authorityID, time.Now(), deadlineAt); err != nil {
 		if err == repository.ErrNotFound {
 			return nil, errx.New("NOT_FOUND", "issue not found", 404)
 		}

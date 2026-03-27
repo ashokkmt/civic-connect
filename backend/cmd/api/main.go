@@ -115,6 +115,7 @@ func main() {
 	moderationHandler := handlers.ModerationHandler{Moderation: moderationService}
 	authorityService := service.NewAuthorityService(issueRepo, priorityWeights)
 	authorityHandler := handlers.AuthorityHandler{Authority: authorityService}
+	deadlineEscalationService := service.NewDeadlineEscalationService(issueRepo, 200)
 	userAdminService := service.NewUserAdminService(userRepo)
 	headHandler.Users = userAdminService
 	adminHandler := handlers.AdminHandler{
@@ -153,9 +154,13 @@ func main() {
 		}
 	}()
 
+	backgroundCtx, cancelBackground := context.WithCancel(context.Background())
+	go deadlineEscalationService.Start(backgroundCtx, time.Duration(cfg.DeadlineEscalationCheckSec)*time.Second)
+
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
 	<-shutdown
+	cancelBackground()
 
 	ctxShutdown, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.ShutdownTimeoutSec)*time.Second)
 	defer cancel()

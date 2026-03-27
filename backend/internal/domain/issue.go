@@ -69,6 +69,7 @@ type ModerationInfo struct {
 type AuthorityInfo struct {
 	AssignedToWorkerID  string     `bson:"assignedToWorkerId,omitempty" json:"assignedToWorkerId,omitempty"`
 	StartedAt           *time.Time `bson:"startedAt,omitempty" json:"startedAt,omitempty"`
+	DeadlineAt          *time.Time `bson:"deadlineAt,omitempty" json:"deadlineAt,omitempty"`
 	ResolutionNotes     string     `bson:"resolutionNotes,omitempty" json:"resolutionNotes,omitempty"`
 	ResolutionImageURLs []string   `bson:"resolutionImageUrls,omitempty" json:"resolutionImageUrls,omitempty"`
 	ResolvedAt          *time.Time `bson:"resolvedAt,omitempty" json:"resolvedAt,omitempty"`

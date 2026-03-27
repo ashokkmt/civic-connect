@@ -63,9 +63,21 @@ func (h ModerationHandler) ListPending(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	reporterCache := make(map[string]service.ReporterProfile)
 	resp := make([]issuePublicDTO, 0, len(issues))
 	for _, issue := range issues {
-		resp = append(resp, toIssuePublicDTO(issue, principal.UserID))
+		dto := toIssuePublicDTO(issue, principal.UserID)
+		if dto.ReporterID != "" {
+			if profile, ok := reporterCache[dto.ReporterID]; ok {
+				dto.ReporterName = profile.Name
+				dto.ReporterEmail = profile.Email
+			} else if profile, profileErr := h.Moderation.GetReporterProfile(r.Context(), dto.ReporterID); profileErr == nil {
+				reporterCache[dto.ReporterID] = profile
+				dto.ReporterName = profile.Name
+				dto.ReporterEmail = profile.Email
+			}
+		}
+		resp = append(resp, dto)
 	}
 
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"items": resp})

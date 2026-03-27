@@ -562,6 +562,49 @@ paths:
       responses:
         '200':
           description: Pending issues
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: string
+                            title:
+                              type: string
+                            description:
+                              type: string
+                            reporterId:
+                              type: string
+                            reporterName:
+                              type: string
+                            reporterEmail:
+                              type: string
+                            status:
+                              type: string
+                            category:
+                              type: string
+                            departmentId:
+                              type: string
+                            imageUrls:
+                              type: array
+                              items:
+                                type: string
+                            createdAt:
+                              type: string
+                              format: date-time
+                            updatedAt:
+                              type: string
+                              format: date-time
   /api/v1/head/issues/escalations:
     get:
       summary: List escalations for department head
@@ -835,6 +878,20 @@ paths:
       responses:
         '200':
           description: Authority issues
+  /api/v1/authority/issues/{id}:
+    get:
+      summary: Get authority issue detail
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Authority issue detail
   /api/v1/authority/issues/{id}/assign:
     post:
       summary: Deprecated assign endpoint
@@ -860,6 +917,17 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                deadlineAt:
+                  type: string
+                  description: RFC3339 timestamp or YYYY-MM-DD date
+              required: [deadlineAt]
       responses:
         '200':
           description: Started

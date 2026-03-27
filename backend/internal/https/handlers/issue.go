@@ -441,6 +441,9 @@ type issuePublicDTO struct {
 	ID                  string             `json:"id"`
 	Title               string             `json:"title"`
 	Description         string             `json:"description"`
+	ReporterID          string             `json:"reporterId,omitempty"`
+	ReporterName        string             `json:"reporterName,omitempty"`
+	ReporterEmail       string             `json:"reporterEmail,omitempty"`
 	ImageURLs           []string           `json:"imageUrls,omitempty"`
 	ResolutionImageURLs []string           `json:"resolutionImageUrls,omitempty"`
 	Location            domain.GeoPoint    `json:"location"`
@@ -475,6 +478,7 @@ func toIssuePublicDTO(issue *domain.Issue, userID string) issuePublicDTO {
 		ID:                  issue.ID.Hex(),
 		Title:               issue.Title,
 		Description:         issue.Description,
+		ReporterID:          issue.CreatedByUserID,
 		ImageURLs:           issue.ImageURLs,
 		ResolutionImageURLs: issue.Authority.ResolutionImageURLs,
 		Location:            issue.Location,

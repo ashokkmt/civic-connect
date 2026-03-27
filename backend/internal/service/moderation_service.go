@@ -22,6 +22,11 @@ type ModerationService struct {
 	sla     *SLAService
 }
 
+type ReporterProfile struct {
+	Name  string
+	Email string
+}
+
 func NewModerationService(issues repository.IssueRepository, users repository.UserRepository, weights priority.Weights, sla *SLAService) *ModerationService {
 	return &ModerationService{issues: issues, users: users, weights: weights, sla: sla}
 }
@@ -60,6 +65,26 @@ func (s *ModerationService) ListEscalated(ctx context.Context, departmentID stri
 		s.sla.RefreshBatch(ctx, issues, time.Now())
 	}
 	return issues, nil
+}
+
+func (s *ModerationService) GetReporterProfile(ctx context.Context, reporterID string) (ReporterProfile, error) {
+	reporterID = strings.TrimSpace(reporterID)
+	if reporterID == "" {
+		return ReporterProfile{}, errx.New("INVALID_INPUT", "reporterId is required", 400)
+	}
+
+	user, err := s.users.GetByID(ctx, reporterID)
+	if err != nil {
+		if err == repository.ErrNotFound {
+			return ReporterProfile{}, errx.New("NOT_FOUND", "reporter not found", 404)
+		}
+		return ReporterProfile{}, errx.New("INTERNAL_ERROR", "could not load reporter profile", 500)
+	}
+
+	return ReporterProfile{
+		Name:  strings.TrimSpace(user.Name),
+		Email: strings.TrimSpace(user.Email),
+	}, nil
 }
 
 func (s *ModerationService) Approve(ctx context.Context, id primitive.ObjectID, headID, departmentID, severity, workerID string) (*domain.Issue, error) {

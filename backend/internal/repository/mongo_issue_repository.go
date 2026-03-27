@@ -238,10 +238,12 @@ func (r *MongoIssueRepository) ListCitizenNearby(ctx context.Context, location d
 
 func (r *MongoIssueRepository) ListAuthorityByDepartment(ctx context.Context, departmentID, authorityID string, statuses []domain.IssueStatus, limit int64) ([]*domain.Issue, error) {
 	filter := bson.M{
-		"departmentId":                 departmentID,
-		"authority.assignedToWorkerId": authorityID,
-		"status":                       bson.M{"$in": statuses},
-		"isMerged":                     bson.M{"$ne": true},
+		"departmentId": departmentID,
+		"status":       bson.M{"$in": statuses},
+		"isMerged":     bson.M{"$ne": true},
+	}
+	if strings.TrimSpace(authorityID) != "" {
+		filter["authority.assignedToWorkerId"] = authorityID
 	}
 
 	opts := options.Find().SetLimit(limit).SetSort(bson.D{{Key: "priorityScore", Value: -1}, {Key: "createdAt", Value: -1}})
@@ -378,7 +380,7 @@ func (r *MongoIssueRepository) AssignIssue(ctx context.Context, id primitive.Obj
 	return nil
 }
 
-func (r *MongoIssueRepository) StartIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID string, startedAt time.Time) error {
+func (r *MongoIssueRepository) StartIssue(ctx context.Context, id primitive.ObjectID, departmentID, authorityID string, startedAt time.Time, deadlineAt *time.Time) error {
 	filter := bson.M{
 		"_id":                          id,
 		"status":                       domain.StatusAssigned,
@@ -386,15 +388,17 @@ func (r *MongoIssueRepository) StartIssue(ctx context.Context, id primitive.Obje
 		"authority.assignedToWorkerId": authorityID,
 		"isMerged":                     bson.M{"$ne": true},
 	}
-	update := bson.M{
-		"$set": bson.M{
-			"status":              domain.StatusInProgress,
-			"statusUpdatedAt":     startedAt,
-			"authority.startedAt": startedAt,
-			"lifecycle.startedAt": startedAt,
-			"updatedAt":           startedAt,
-		},
+	set := bson.M{
+		"status":              domain.StatusInProgress,
+		"statusUpdatedAt":     startedAt,
+		"authority.startedAt": startedAt,
+		"lifecycle.startedAt": startedAt,
+		"updatedAt":           startedAt,
 	}
+	if deadlineAt != nil {
+		set["authority.deadlineAt"] = *deadlineAt
+	}
+	update := bson.M{"$set": set}
 
 	res, err := r.col.UpdateOne(ctx, filter, update)
 	if err != nil {
@@ -620,6 +624,38 @@ func (r *MongoIssueRepository) ListEscalated(ctx context.Context, departmentID s
 		filter["departmentId"] = departmentID
 	}
 	cur, err := r.col.Find(ctx, filter, options.Find().SetLimit(limit).SetSort(bson.D{{Key: "escalationLevel", Value: -1}, {Key: "escalatedAt", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	var out []*domain.Issue
+	for cur.Next(ctx) {
+		var issue domain.Issue
+		if err := cur.Decode(&issue); err != nil {
+			return nil, err
+		}
+		out = append(out, &issue)
+	}
+	if err := cur.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (r *MongoIssueRepository) ListDeadlineOverdueActive(ctx context.Context, now time.Time, limit int64) ([]*domain.Issue, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+
+	filter := bson.M{
+		"isMerged":             bson.M{"$ne": true},
+		"status":               bson.M{"$in": []domain.IssueStatus{domain.StatusAssigned, domain.StatusInProgress}},
+		"authority.deadlineAt": bson.M{"$lte": now, "$ne": nil},
+		"escalationLevel":      bson.M{"$lt": 1},
+	}
+
+	cur, err := r.col.Find(ctx, filter, options.Find().SetLimit(limit).SetSort(bson.D{{Key: "authority.deadlineAt", Value: 1}}))
 	if err != nil {
 		return nil, err
 	}

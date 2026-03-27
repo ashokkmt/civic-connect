@@ -70,6 +70,7 @@ func NewRouter(cfg RouterConfig) http.Handler {
 	mux.Handle("/api/v1/issues", http.HandlerFunc(cfg.IssueHandler.ListPublic))
 	mux.Handle("/api/v1/issues/stats", http.HandlerFunc(cfg.IssueHandler.PublicStats))
 	mux.Handle("/api/v1/issues/", http.HandlerFunc(cfg.IssueHandler.GetPublic))
+	mux.Handle("/api/v1/departments", authOnly(http.HandlerFunc(cfg.AdminHandler.ListDepartments)))
 	mux.Handle("/api/v1/citizen/issues", citizenOnly(submissionLimiter.MiddlewareForMethods(submissionKey, http.MethodPost)(http.HandlerFunc(cfg.IssueHandler.CitizenIssues))))
 	mux.Handle("/api/v1/citizen/issues/", citizenOnly(submissionLimiter.MiddlewareForMethods(submissionKey, http.MethodPost)(http.HandlerFunc(cfg.IssueHandler.CitizenIssueRoutes))))
 	mux.Handle("/api/v1/uploads/images", authOnly(uploadLimiter.MiddlewareForMethods(uploadKey, http.MethodPost)(http.HandlerFunc(cfg.UploadHandler.UploadImage))))

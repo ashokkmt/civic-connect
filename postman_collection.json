@@ -194,6 +194,7 @@
           "name": "List Pending",
           "request": {
             "method": "GET",
+            "description": "Expected response includes reporter identity enrichment for moderation UI.\n\nExample:\n{\n  \"success\": true,\n  \"data\": {\n    \"items\": [\n      {\n        \"id\": \"<issueId>\",\n        \"title\": \"Broken street light\",\n        \"reporterId\": \"<userId>\",\n        \"reporterName\": \"John Doe\",\n        \"reporterEmail\": \"john@example.com\"\n      }\n    ]\n  }\n}",
             "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
             "url": "{{baseUrl}}/api/v1/head/issues/pending?limit=50"
           }
