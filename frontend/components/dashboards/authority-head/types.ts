@@ -24,6 +24,15 @@ export type HeadIssue = {
     assignedToWorkerId?: string;
     resolvedAt?: string;
   };
+  escalationReason?: string;
+};
+
+export type HeadWorker = {
+  id: string;
+  name?: string;
+  email: string;
+  blocked?: boolean;
+  departmentId?: string;
 };
 
 export type HeadWorkerMetric = {

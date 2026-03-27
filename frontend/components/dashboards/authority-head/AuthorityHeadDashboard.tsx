@@ -21,18 +21,11 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import type {
   HeadApiResponse,
   HeadIssue,
+  HeadWorker,
   HeadView,
   HeadWorkerMetric,
-  HeadWorkerStatus,
   HeadWorkerSummary,
 } from "@/components/dashboards/authority-head/types";
-
-type CreatedWorker = {
-  workerId: string;
-  workerName: string;
-  email: string;
-  status: HeadWorkerStatus;
-};
 
 function workerNameFromId(workerId: string) {
   const suffix = workerId.slice(-4).toUpperCase();
@@ -69,7 +62,7 @@ function buildWorkerMetrics(issues: HeadIssue[]): HeadWorkerMetric[] {
     .sort((a, b) => b.successRate - a.successRate);
 }
 
-function buildWorkerSummaries(issues: HeadIssue[], createdWorkers: CreatedWorker[]): HeadWorkerSummary[] {
+function buildWorkerSummaries(issues: HeadIssue[], apiWorkers: HeadWorker[]): HeadWorkerSummary[] {
   const metricByWorker = new Map(buildWorkerMetrics(issues).map((metric) => [metric.workerId, metric]));
   const lastActiveByWorker = new Map<string, string>();
 
@@ -85,35 +78,24 @@ function buildWorkerSummaries(issues: HeadIssue[], createdWorkers: CreatedWorker
     }
   }
 
-  const rowsFromMetrics: HeadWorkerSummary[] = Array.from(metricByWorker.values()).map((metric) => ({
-    workerId: metric.workerId,
-    workerName: workerNameFromId(metric.workerId),
-    email: "Email unavailable from API",
-    status: metric.pending > 0 ? "ACTIVE" : "IDLE",
-    assigned: metric.assigned,
-    completed: metric.completed,
-    pending: metric.pending,
-    successRate: metric.successRate,
-    lastActiveAt: lastActiveByWorker.get(metric.workerId),
-  }));
-
-  for (const created of createdWorkers) {
-    if (metricByWorker.has(created.workerId)) {
-      continue;
-    }
-
-    rowsFromMetrics.push({
-      workerId: created.workerId,
-      workerName: created.workerName,
-      email: created.email,
-      status: created.status,
-      assigned: 0,
-      completed: 0,
-      pending: 0,
-      successRate: 0,
-      lastActiveAt: undefined,
-    });
-  }
+  const rowsFromMetrics: HeadWorkerSummary[] = apiWorkers.map((worker) => {
+    const metric = metricByWorker.get(worker.id);
+    const assigned = metric?.assigned ?? 0;
+    const completed = metric?.completed ?? 0;
+    const pending = metric?.pending ?? 0;
+    const status = worker.blocked ? "DISABLED" : pending > 0 ? "ACTIVE" : "IDLE";
+    return {
+      workerId: worker.id,
+      workerName: worker.name?.trim() || workerNameFromId(worker.id),
+      email: worker.email,
+      status,
+      assigned,
+      completed,
+      pending,
+      successRate: assigned ? Math.round((completed / assigned) * 100) : 0,
+      lastActiveAt: lastActiveByWorker.get(worker.id),
+    };
+  });
 
   return rowsFromMetrics.sort((a, b) => b.successRate - a.successRate || b.assigned - a.assigned);
 }
@@ -129,6 +111,7 @@ export function AuthorityHeadDashboard() {
   const [pendingIssues, setPendingIssues] = useState<HeadIssue[]>([]);
   const [departmentIssues, setDepartmentIssues] = useState<HeadIssue[]>([]);
   const [escalations, setEscalations] = useState<HeadIssue[]>([]);
+  const [workers, setWorkers] = useState<HeadWorker[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,6 +120,7 @@ export function AuthorityHeadDashboard() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [closeLoadingId, setCloseLoadingId] = useState<string | null>(null);
   const [reassignLoadingId, setReassignLoadingId] = useState<string | null>(null);
+  const [escalateLoadingId, setEscalateLoadingId] = useState<string | null>(null);
 
   const [approveForm, setApproveForm] = useState<Record<string, { severity: string; workerId: string }>>({});
   const [rejectForm, setRejectForm] = useState<Record<string, string>>({});
@@ -144,24 +128,25 @@ export function AuthorityHeadDashboard() {
   const [createWorkerLoading, setCreateWorkerLoading] = useState(false);
   const [createWorkerError, setCreateWorkerError] = useState<string | null>(null);
   const [createWorkerSuccess, setCreateWorkerSuccess] = useState<string | null>(null);
-  const [createdWorkers, setCreatedWorkers] = useState<CreatedWorker[]>([]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const [pendingRes, issuesRes, escalationsRes] = await Promise.all([
+      const [pendingRes, issuesRes, escalationsRes, workersRes] = await Promise.all([
         fetch("/api/head/pending?limit=100", { method: "GET" }),
         fetch("/api/head/issues?limit=200", { method: "GET" }),
         fetch("/api/head/escalations?limit=100", { method: "GET" }),
+        fetch("/api/head/workers?limit=200&includeBlocked=true", { method: "GET" }),
       ]);
 
       const pendingPayload = (await pendingRes.json()) as HeadApiResponse;
       const issuesPayload = (await issuesRes.json()) as HeadApiResponse;
       const escalationsPayload = (await escalationsRes.json()) as HeadApiResponse;
+      const workersPayload = (await workersRes.json()) as { success: boolean; requestId?: string; data?: { items?: HeadWorker[] }; error?: { message?: string } };
 
-      setRequestId(pendingPayload.requestId ?? issuesPayload.requestId ?? escalationsPayload.requestId ?? null);
+      setRequestId(pendingPayload.requestId ?? issuesPayload.requestId ?? escalationsPayload.requestId ?? workersPayload.requestId ?? null);
 
       if (!pendingRes.ok || !pendingPayload.success) {
         setError(pendingPayload.error?.message ?? "Unable to load pending issues.");
@@ -172,10 +157,14 @@ export function AuthorityHeadDashboard() {
       if (!escalationsRes.ok || !escalationsPayload.success) {
         setError(escalationsPayload.error?.message ?? "Unable to load escalations.");
       }
+      if (!workersRes.ok || !workersPayload.success) {
+        setError(workersPayload.error?.message ?? "Unable to load workers.");
+      }
 
       setPendingIssues(pendingPayload.data?.items ?? []);
       setDepartmentIssues(issuesPayload.data?.items ?? []);
       setEscalations(escalationsPayload.data?.items ?? []);
+      setWorkers(workersPayload.data?.items ?? []);
     } catch {
       setError("Unable to load head dashboard data.");
     } finally {
@@ -274,22 +263,6 @@ export function AuthorityHeadDashboard() {
       }
 
       setCreateWorkerSuccess("Worker account created successfully.");
-      setCreatedWorkers((prev) => {
-        if (prev.some((worker) => worker.email.toLowerCase() === email.trim().toLowerCase())) {
-          return prev;
-        }
-
-        const syntheticId = `new-${Date.now()}`;
-        return [
-          ...prev,
-          {
-            workerId: syntheticId,
-            workerName: workerNameFromId(syntheticId),
-            email: email.trim(),
-            status: "IDLE",
-          },
-        ];
-      });
       await loadAll();
     } catch {
       setCreateWorkerError("Unable to create worker.");
@@ -371,11 +344,78 @@ export function AuthorityHeadDashboard() {
     }
   };
 
+  const escalateIssue = async (issueId: string, reason: string) => {
+    setEscalateLoadingId(issueId);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/head/issues/${issueId}/escalate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      const payload = (await response.json()) as HeadApiResponse;
+      setRequestId(payload.requestId ?? null);
+
+      if (!response.ok || !payload.success) {
+        setError(payload.error?.message ?? "Unable to escalate issue.");
+        return;
+      }
+
+      await loadAll();
+    } catch {
+      setError("Unable to escalate issue.");
+    } finally {
+      setEscalateLoadingId(null);
+    }
+  };
+
+  const updateWorker = async (workerId: string, payload: { name: string; email: string }) => {
+    setError(null);
+    const response = await fetch(`/api/head/workers/${workerId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = (await response.json()) as { success: boolean; requestId?: string; error?: { message?: string } };
+    setRequestId(result.requestId ?? null);
+    if (!response.ok || !result.success) {
+      const message = result.error?.message ?? "Unable to update worker.";
+      setError(message);
+      throw new Error(message);
+    }
+    await loadAll();
+  };
+
+  const deleteWorker = async (workerId: string) => {
+    setError(null);
+    const response = await fetch(`/api/head/workers/${workerId}`, { method: "DELETE" });
+    const result = (await response.json()) as { success: boolean; requestId?: string; error?: { message?: string } };
+    setRequestId(result.requestId ?? null);
+    if (!response.ok || !result.success) {
+      const message = result.error?.message ?? "Unable to delete worker.";
+      setError(message);
+      throw new Error(message);
+    }
+    await loadAll();
+  };
+
+  const setWorkerStatus = async (workerId: string, disabled: boolean) => {
+    setError(null);
+    const endpoint = disabled ? "disable" : "enable";
+    const response = await fetch(`/api/head/workers/${workerId}/${endpoint}`, { method: "POST" });
+    const result = (await response.json()) as { success: boolean; requestId?: string; error?: { message?: string } };
+    setRequestId(result.requestId ?? null);
+    if (!response.ok || !result.success) {
+      const message = result.error?.message ?? `Unable to ${endpoint} worker.`;
+      setError(message);
+      throw new Error(message);
+    }
+    await loadAll();
+  };
+
   const workerMetrics = useMemo(() => buildWorkerMetrics(departmentIssues), [departmentIssues]);
-  const workerSummaries = useMemo(
-    () => buildWorkerSummaries(departmentIssues, createdWorkers),
-    [createdWorkers, departmentIssues]
-  );
+  const workerSummaries = useMemo(() => buildWorkerSummaries(departmentIssues, workers), [departmentIssues, workers]);
 
   const navItems = useMemo(
     () => [
@@ -518,6 +558,9 @@ export function AuthorityHeadDashboard() {
                   createWorkerSuccess={createWorkerSuccess}
                   onCreateWorker={createWorker}
                   onQuickAssignApprove={quickAssignApprove}
+                  onUpdateWorker={updateWorker}
+                  onDeleteWorker={deleteWorker}
+                  onSetWorkerStatus={setWorkerStatus}
                 />
               ) : null}
 
@@ -527,8 +570,10 @@ export function AuthorityHeadDashboard() {
                   escalations={escalations}
                   closeLoadingId={closeLoadingId}
                   reassignLoadingId={reassignLoadingId}
+                  escalateLoadingId={escalateLoadingId}
                   onCloseIssue={closeIssue}
                   onReassignIssue={reassignIssue}
+                  onEscalateIssue={escalateIssue}
                   mode="resolved"
                 />
               ) : null}
@@ -539,8 +584,10 @@ export function AuthorityHeadDashboard() {
                   escalations={escalations}
                   closeLoadingId={closeLoadingId}
                   reassignLoadingId={reassignLoadingId}
+                  escalateLoadingId={escalateLoadingId}
                   onCloseIssue={closeIssue}
                   onReassignIssue={reassignIssue}
+                  onEscalateIssue={escalateIssue}
                   mode="escalations"
                 />
               ) : null}

@@ -104,7 +104,7 @@ export function HeadRegistrationView({
       <div className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Registered Department Heads</h2>
-          <Badge tone="info">{headRows.length} registered</Badge>
+          <Badge tone="info">{`${headRows.length} registered`}</Badge>
         </div>
         <Table variant="slate" headers={["Name", "Email", "Department Assignment"]}>
           {headRows.map((head) => (

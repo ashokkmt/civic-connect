@@ -9,8 +9,10 @@ type ResolvedIssuesEscalationsProps = {
   escalations: HeadIssue[];
   closeLoadingId: string | null;
   reassignLoadingId: string | null;
+  escalateLoadingId: string | null;
   onCloseIssue: (issueId: string) => Promise<void>;
   onReassignIssue: (issueId: string, workerId: string) => Promise<void>;
+  onEscalateIssue: (issueId: string, reason: string) => Promise<void>;
   mode: "resolved" | "escalations";
 };
 
@@ -30,11 +32,14 @@ export function ResolvedIssuesEscalations({
   escalations,
   closeLoadingId,
   reassignLoadingId,
+  escalateLoadingId,
   onCloseIssue,
   onReassignIssue,
+  onEscalateIssue,
   mode,
 }: ResolvedIssuesEscalationsProps) {
   const [reassignWorkerByIssue, setReassignWorkerByIssue] = useState<Record<string, string>>({});
+  const [escalationReasonByIssue, setEscalationReasonByIssue] = useState<Record<string, string>>({});
   const [localError, setLocalError] = useState<string | null>(null);
 
   const resolvedLike = issues.filter(
@@ -109,9 +114,9 @@ export function ResolvedIssuesEscalations({
             <div className="flex items-start gap-3 rounded-xl border border-amber-300/70 bg-amber-50/95 p-4 dark:border-amber-800/60 dark:bg-amber-950/45">
               <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600 dark:text-amber-300" />
               <div>
-                <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">Admin Escalation Note</h3>
+                <h3 className="text-sm font-semibold text-amber-800 dark:text-amber-300">Escalate To Admin</h3>
                 <p className="mt-1 text-sm text-amber-700/90 dark:text-amber-200">
-                  Escalate-to-admin action is not yet available in the current backend API surface.
+                  Add a reason and escalate unresolved or disputed department issues for admin intervention.
                 </p>
               </div>
             </div>
@@ -131,7 +136,8 @@ export function ResolvedIssuesEscalations({
                     <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Status</th>
                     <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Assigned Worker</th>
                     <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Reassign Worker ID</th>
-                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Action</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Escalate Reason</th>
+                    <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -154,28 +160,59 @@ export function ResolvedIssuesEscalations({
                         />
                       </td>
                       <td className="px-6 py-4">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const workerId = (reassignWorkerByIssue[issue.id] ?? "").trim();
-                            if (!workerId) {
-                              setLocalError("Worker ID is required to reassign escalated issue.");
-                              return;
-                            }
-                            setLocalError(null);
-                            void onReassignIssue(issue.id, workerId);
-                          }}
-                          disabled={reassignLoadingId === issue.id}
-                          className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {reassignLoadingId === issue.id ? "Reassigning..." : "Reassign"}
-                        </button>
+                        <input
+                          value={escalationReasonByIssue[issue.id] ?? issue.escalationReason ?? ""}
+                          onChange={(event) =>
+                            setEscalationReasonByIssue((prev) => ({
+                              ...prev,
+                              [issue.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="Reason for admin escalation"
+                          className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-1.5 text-xs text-zinc-800 dark:text-zinc-100"
+                        />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const workerId = (reassignWorkerByIssue[issue.id] ?? "").trim();
+                              if (!workerId) {
+                                setLocalError("Worker ID is required to reassign escalated issue.");
+                                return;
+                              }
+                              setLocalError(null);
+                              void onReassignIssue(issue.id, workerId);
+                            }}
+                            disabled={reassignLoadingId === issue.id}
+                            className="rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {reassignLoadingId === issue.id ? "Reassigning..." : "Reassign"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const reason = (escalationReasonByIssue[issue.id] ?? issue.escalationReason ?? "").trim();
+                              if (!reason) {
+                                setLocalError("Escalation reason is required.");
+                                return;
+                              }
+                              setLocalError(null);
+                              void onEscalateIssue(issue.id, reason);
+                            }}
+                            disabled={escalateLoadingId === issue.id}
+                            className="rounded-lg bg-amber-600 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {escalateLoadingId === issue.id ? "Escalating..." : "Escalate"}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
                   {escalations.length === 0 ? (
                     <tr>
-                      <td colSpan={5} className="px-6 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                      <td colSpan={6} className="px-6 py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
                         No escalations reported by backend.
                       </td>
                     </tr>

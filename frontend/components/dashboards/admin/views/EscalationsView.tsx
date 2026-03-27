@@ -1,16 +1,33 @@
+import { useState } from "react";
 import { AlertTriangle, Clock3 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Table } from "@/components/ui/Table";
-import type { EscalationItem } from "@/components/dashboards/admin/types";
+import type { DepartmentRow, EscalationItem } from "@/components/dashboards/admin/types";
 
 type EscalationsViewProps = {
   escalations: EscalationItem[];
+  departments: DepartmentRow[];
+  reassignLoadingId: string | null;
+  notifyLoadingId: string | null;
   onLoadEscalations: () => void;
   onResolveEscalation: (issueId: string) => void;
+  onReassignDepartment: (issueId: string, departmentId: string) => void;
+  onNotifyHead: (issueId: string) => void;
 };
 
-export function EscalationsView({ escalations, onLoadEscalations, onResolveEscalation }: EscalationsViewProps) {
+export function EscalationsView({
+  escalations,
+  departments,
+  reassignLoadingId,
+  notifyLoadingId,
+  onLoadEscalations,
+  onResolveEscalation,
+  onReassignDepartment,
+  onNotifyHead,
+}: EscalationsViewProps) {
+  const [departmentSelections, setDepartmentSelections] = useState<Record<string, string>>({});
+
   const totalEscalations = escalations.length;
   const avgPendingDays =
     totalEscalations === 0
@@ -70,7 +87,7 @@ export function EscalationsView({ escalations, onLoadEscalations, onResolveEscal
                 <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">{item.departmentId ?? "Unknown"}</td>
                 <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">{item.authority?.assignedToWorkerId ?? "Not provided by API"}</td>
                 <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">
-                  <Badge tone="warning">{daysPending(item.createdAt)} Days</Badge>
+                  <Badge tone="warning">{`${daysPending(item.createdAt)} Days`}</Badge>
                 </td>
                 <td className="px-4 py-3">
                   <Badge tone={byEscalationSeverity(level)}>{level}</Badge>
@@ -86,18 +103,41 @@ export function EscalationsView({ escalations, onLoadEscalations, onResolveEscal
                     </button>
                     <button
                       type="button"
-                      disabled
-                      className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-400"
+                      onClick={() => {
+                        const departmentId = departmentSelections[id] || item.departmentId || "";
+                        if (!departmentId) {
+                          return;
+                        }
+                        onReassignDepartment(id, departmentId);
+                      }}
+                      disabled={reassignLoadingId === id || !(departmentSelections[id] || item.departmentId)}
+                      className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200"
                     >
-                      Reassign Dept
+                      {reassignLoadingId === id ? "Reassigning..." : "Reassign Dept"}
                     </button>
                     <button
                       type="button"
-                      disabled
-                      className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-400"
+                      onClick={() => onNotifyHead(id)}
+                      disabled={notifyLoadingId === id}
+                      className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200"
                     >
-                      Notify Head
+                      {notifyLoadingId === id ? "Notifying..." : "Notify Head"}
                     </button>
+                    <select
+                      value={departmentSelections[id] ?? item.departmentId ?? ""}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setDepartmentSelections((prev) => ({ ...prev, [id]: value }));
+                      }}
+                      className="rounded-md border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-1 text-[11px] text-zinc-700 dark:text-zinc-200"
+                    >
+                      <option value="">Select department</option>
+                      {departments.map((department) => (
+                        <option key={department.id} value={department.id}>
+                          {department.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </td>
               </tr>
@@ -112,9 +152,7 @@ export function EscalationsView({ escalations, onLoadEscalations, onResolveEscal
           ) : null}
         </Table>
 
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          Reassign department and notify head actions are gated until dedicated backend endpoints are implemented.
-        </p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">Escalation actions are live and persist through admin governance APIs.</p>
       </div>
     </section>
   );

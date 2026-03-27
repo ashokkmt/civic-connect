@@ -1,7 +1,7 @@
 export type ApiResponse<T = unknown> = {
   success: boolean;
   requestId?: string;
-  data?: {
+  data?: Record<string, unknown> & {
     items?: T[];
     item?: T;
   };
@@ -17,6 +17,9 @@ export type EscalationItem = {
   issueId?: string;
   departmentId?: string;
   escalationLevel?: string;
+  escalationReason?: string;
+  notifiedHeadAt?: string;
+  notifiedHeadBy?: string;
   status?: string;
   createdAt?: string;
   updatedAt?: string;

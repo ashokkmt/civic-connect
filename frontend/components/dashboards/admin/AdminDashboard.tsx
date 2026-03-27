@@ -22,6 +22,25 @@ type MeResponse = {
   };
 };
 
+type DepartmentApiItem = {
+  id?: string;
+  name?: string;
+};
+
+type DepartmentMetricApiItem = {
+  departmentId?: string;
+  name?: string;
+  totalIssues?: number;
+  resolvedIssues?: number;
+};
+
+type AuthorityApiItem = {
+  id?: string;
+  name?: string;
+  email?: string;
+  departmentId?: string;
+};
+
 export function AdminDashboard() {
   const router = useRouter();
 
@@ -50,6 +69,9 @@ export function AdminDashboard() {
   const [headDepartmentId, setHeadDepartmentId] = useState("");
   const [headSaving, setHeadSaving] = useState(false);
   const [headMessage, setHeadMessage] = useState<string | null>(null);
+  const [reassignLoadingId, setReassignLoadingId] = useState<string | null>(null);
+  const [notifyLoadingId, setNotifyLoadingId] = useState<string | null>(null);
+  const [actionToast, setActionToast] = useState<{ key: string; message: string; tone: "success" | "error" } | null>(null);
 
   const sidebarItems = useMemo(
     () => [
@@ -61,48 +83,94 @@ export function AdminDashboard() {
     [escalations.length]
   );
 
-  const loadEscalations = useCallback(async () => {
+  const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch("/api/admin/escalations?limit=100", { method: "GET" });
-      const payload = (await response.json()) as ApiResponse<EscalationItem>;
-      setRequestId(payload.requestId ?? null);
+      const [escalationsRes, departmentsRes, metricsRes, headsRes] = await Promise.all([
+        fetch("/api/admin/escalations?limit=100", { method: "GET" }),
+        fetch("/api/admin/departments?limit=200", { method: "GET" }),
+        fetch("/api/admin/departments/metrics", { method: "GET" }),
+        fetch("/api/admin/authority-heads?limit=200", { method: "GET" }),
+      ]);
 
-      if (!response.ok || !payload.success) {
-        setError(payload.error?.message ?? "Unable to load escalations.");
-        setEscalations([]);
-        return;
+      const escalationsPayload = (await escalationsRes.json()) as ApiResponse<EscalationItem>;
+      const departmentsPayload = (await departmentsRes.json()) as ApiResponse<DepartmentApiItem>;
+      const metricsPayload = (await metricsRes.json()) as ApiResponse<DepartmentMetricApiItem>;
+      const headsPayload = (await headsRes.json()) as ApiResponse<AuthorityApiItem>;
+
+      setRequestId(
+        escalationsPayload.requestId ??
+          departmentsPayload.requestId ??
+          metricsPayload.requestId ??
+          headsPayload.requestId ??
+          null
+      );
+
+      if (!escalationsRes.ok || !escalationsPayload.success) {
+        setError(escalationsPayload.error?.message ?? "Unable to load escalations.");
+      }
+      if (!departmentsRes.ok || !departmentsPayload.success) {
+        setError(departmentsPayload.error?.message ?? "Unable to load departments.");
+      }
+      if (!metricsRes.ok || !metricsPayload.success) {
+        setError(metricsPayload.error?.message ?? "Unable to load department metrics.");
+      }
+      if (!headsRes.ok || !headsPayload.success) {
+        setError(headsPayload.error?.message ?? "Unable to load authority heads.");
       }
 
-      const items = payload.data?.items ?? [];
-      setEscalations(items);
+      const escalationItems = escalationsPayload.data?.items ?? [];
+      const departmentItems = departmentsPayload.data?.items ?? [];
+      const metricItems = metricsPayload.data?.items ?? [];
+      const authorityItems = headsPayload.data?.items ?? [];
 
-      setDepartmentRows((prev) => {
-        if (prev.length > 0) {
-          return prev;
-        }
+      setEscalations(escalationItems);
 
-        const departmentMap = new Map<string, number>();
-        for (const item of items) {
-          const key = item.departmentId ?? "UNASSIGNED";
-          departmentMap.set(key, (departmentMap.get(key) ?? 0) + 1);
-        }
-
-        return Array.from(departmentMap.entries()).map(([departmentId, count]) => ({
-          id: departmentId,
-          name: departmentId === "UNASSIGNED" ? "Unassigned Department" : `Department ${departmentId.slice(-4).toUpperCase()}`,
-          headName: "Head data pending API",
-          totalIssues: count,
-          resolvedIssues: 0,
-          successRate: 0,
-          disabled: false,
-        }));
+      const headByDepartment = new Map<string, string>();
+      const headRowsMapped: HeadRow[] = authorityItems.map((head, index) => {
+        const id = head.id?.trim() || `head-${index}`;
+        const departmentId = head.departmentId?.trim() || "UNASSIGNED";
+        const name = head.name?.trim() || `Head ${id.slice(-4).toUpperCase()}`;
+        headByDepartment.set(departmentId, name);
+        return {
+          id,
+          name,
+          email: head.email?.trim() || "",
+          departmentId,
+        };
       });
+      setHeadRows(headRowsMapped);
+
+      const metricsByDepartment = new Map<string, DepartmentMetricApiItem>();
+      for (const metric of metricItems) {
+        if (metric.departmentId) {
+          metricsByDepartment.set(metric.departmentId, metric);
+        }
+      }
+
+      const rows: DepartmentRow[] = departmentItems.map((department, index) => {
+        const id = department.id?.trim() || `dept-${index}`;
+        const metric = metricsByDepartment.get(id);
+        const totalIssues = Number(metric?.totalIssues ?? 0);
+        const resolvedIssues = Number(metric?.resolvedIssues ?? 0);
+        return {
+          id,
+          name: department.name?.trim() || `Department ${id.slice(-4).toUpperCase()}`,
+          headName: headByDepartment.get(id) ?? "Not assigned",
+          totalIssues,
+          resolvedIssues,
+          successRate: totalIssues ? Math.round((resolvedIssues / totalIssues) * 100) : 0,
+          disabled: false,
+        };
+      });
+      setDepartmentRows(rows);
     } catch {
-      setError("Unable to load escalations.");
+      setError("Unable to load admin dashboard data.");
       setEscalations([]);
+      setDepartmentRows([]);
+      setHeadRows([]);
     } finally {
       setLoading(false);
     }
@@ -175,21 +243,9 @@ export function AdminDashboard() {
         return;
       }
 
-      const syntheticId = `dept-${Date.now()}`;
-      setDepartmentRows((prev) => [
-        {
-          id: syntheticId,
-          name: departmentName.trim(),
-          headName: "Not assigned",
-          totalIssues: 0,
-          resolvedIssues: 0,
-          successRate: 0,
-          disabled: false,
-        },
-        ...prev,
-      ]);
       setDepartmentMessage("Department created successfully.");
       setDepartmentName("");
+      await loadAll();
     } catch {
       setError("Unable to create department.");
     } finally {
@@ -213,6 +269,7 @@ export function AdminDashboard() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          name: headName.trim(),
           email: headEmail.trim(),
           password: headPassword,
           departmentId: headDepartmentId.trim(),
@@ -227,28 +284,12 @@ export function AdminDashboard() {
         return;
       }
 
-      const id = `head-${Date.now()}`;
-      setHeadRows((prev) => [
-        {
-          id,
-          name: headName.trim(),
-          email: headEmail.trim(),
-          departmentId: headDepartmentId.trim(),
-        },
-        ...prev,
-      ]);
-
-      setDepartmentRows((prev) =>
-        prev.map((row) =>
-          row.id === headDepartmentId.trim() ? { ...row, headName: headName.trim() } : row
-        )
-      );
-
       setHeadMessage("Department head registered successfully.");
       setHeadName("");
       setHeadEmail("");
       setHeadPassword("");
       setHeadDepartmentId("");
+      await loadAll();
     } catch {
       setError("Unable to register department head.");
     } finally {
@@ -281,13 +322,108 @@ export function AdminDashboard() {
     );
   };
 
+  const reassignEscalationDepartment = async (issueId: string, departmentId: string) => {
+    setReassignLoadingId(issueId);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/admin/escalations/${issueId}/reassign-department`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ departmentId }),
+      });
+      const payload = (await response.json()) as ApiResponse;
+      setRequestId(payload.requestId ?? null);
+
+      if (!response.ok || !payload.success) {
+        const message = payload.error?.message ?? "Unable to reassign escalation.";
+        setError(message);
+        setActionToast({
+          key: `${Date.now()}-reassign-error-${issueId}`,
+          message,
+          tone: "error",
+        });
+        return;
+      }
+
+      const deptName = departmentRows.find((row) => row.id === departmentId)?.name ?? "selected department";
+      setActionToast({
+        key: `${Date.now()}-reassign-${issueId}`,
+        message: `Escalation ${issueId.slice(-6).toUpperCase()} reassigned to ${deptName}.`,
+        tone: "success",
+      });
+      await loadAll();
+    } catch {
+      const message = "Unable to reassign escalation.";
+      setError(message);
+      setActionToast({
+        key: `${Date.now()}-reassign-error-${issueId}`,
+        message,
+        tone: "error",
+      });
+    } finally {
+      setReassignLoadingId(null);
+    }
+  };
+
+  const notifyEscalationHead = async (issueId: string) => {
+    setNotifyLoadingId(issueId);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/admin/escalations/${issueId}/notify-head`, { method: "POST" });
+      const payload = (await response.json()) as ApiResponse;
+      setRequestId(payload.requestId ?? null);
+
+      if (!response.ok || !payload.success) {
+        const message = payload.error?.message ?? "Unable to notify authority head.";
+        setError(message);
+        setActionToast({
+          key: `${Date.now()}-notify-error-${issueId}`,
+          message,
+          tone: "error",
+        });
+        return;
+      }
+
+      setActionToast({
+        key: `${Date.now()}-notify-${issueId}`,
+        message: `Authority head notified for escalation ${issueId.slice(-6).toUpperCase()}.`,
+        tone: "success",
+      });
+      await loadAll();
+    } catch {
+      const message = "Unable to notify authority head.";
+      setError(message);
+      setActionToast({
+        key: `${Date.now()}-notify-error-${issueId}`,
+        message,
+        tone: "error",
+      });
+    } finally {
+      setNotifyLoadingId(null);
+    }
+  };
+
   const refresh = () => {
-    void loadEscalations();
+    void loadAll();
   };
 
   useEffect(() => {
-    void loadEscalations();
-  }, [loadEscalations]);
+    void loadAll();
+  }, [loadAll]);
+
+  useEffect(() => {
+    if (!actionToast) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setActionToast(null);
+    }, 2600);
+
+    return () => window.clearTimeout(timer);
+  }, [actionToast]);
 
   const logout = async () => {
     setIsLoggingOut(true);
@@ -403,6 +539,20 @@ export function AdminDashboard() {
             />
 
             <main className="h-[calc(100vh-4rem)] overflow-y-auto p-4 sm:p-6 lg:p-8">
+              {actionToast ? (
+                <div className="pointer-events-none fixed right-4 top-20 z-50 sm:right-6">
+                  <div
+                    key={actionToast.key}
+                    className={
+                      actionToast.tone === "success"
+                        ? "rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800 shadow-sm dark:border-emerald-900/60 dark:bg-emerald-900/25 dark:text-emerald-200"
+                        : "rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-800 shadow-sm dark:border-red-900/60 dark:bg-red-900/25 dark:text-red-200"
+                    }
+                  >
+                    {actionToast.message}
+                  </div>
+                </div>
+              ) : null}
               <div className="mx-auto w-full max-w-6xl space-y-6">
                 {error ? (
                   <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-200">
@@ -449,8 +599,13 @@ export function AdminDashboard() {
                 {activeView === "escalations" ? (
                   <EscalationsView
                     escalations={filteredEscalations}
-                    onLoadEscalations={() => void loadEscalations()}
+                    departments={departmentRows}
+                    reassignLoadingId={reassignLoadingId}
+                    notifyLoadingId={notifyLoadingId}
+                    onLoadEscalations={() => void loadAll()}
                     onResolveEscalation={(issueId) => void resolveEscalation(issueId)}
+                    onReassignDepartment={(issueId, departmentId) => void reassignEscalationDepartment(issueId, departmentId)}
+                    onNotifyHead={(issueId) => void notifyEscalationHead(issueId)}
                   />
                 ) : null}
               </div>

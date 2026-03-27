@@ -13,6 +13,9 @@ type WorkerManagementProps = {
   createWorkerSuccess: string | null;
   onCreateWorker: (email: string, password: string) => Promise<void>;
   onQuickAssignApprove: (issueId: string, workerId: string, severity: string) => Promise<void>;
+  onUpdateWorker: (workerId: string, payload: { name: string; email: string }) => Promise<void>;
+  onDeleteWorker: (workerId: string) => Promise<void>;
+  onSetWorkerStatus: (workerId: string, disabled: boolean) => Promise<void>;
 };
 
 export function WorkerManagement({
@@ -23,6 +26,9 @@ export function WorkerManagement({
   createWorkerSuccess,
   onCreateWorker,
   onQuickAssignApprove,
+  onUpdateWorker,
+  onDeleteWorker,
+  onSetWorkerStatus,
 }: WorkerManagementProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,6 +41,10 @@ export function WorkerManagement({
   const [statusFilter, setStatusFilter] = useState<"ALL" | HeadWorkerStatus>("ALL");
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<HeadWorkerSummary | null>(null);
+  const [workerActionLoadingId, setWorkerActionLoadingId] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileMessage, setProfileMessage] = useState<string | null>(null);
 
   const assignableIssues = useMemo(
     () => pendingIssues.filter((issue) => issue.status === "PENDING_APPROVAL"),
@@ -113,9 +123,7 @@ export function WorkerManagement({
               </div>
               <FormError message={createWorkerError} />
               {createWorkerSuccess ? <p className="text-xs text-emerald-600 dark:text-emerald-300">{createWorkerSuccess}</p> : null}
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Profile edit, disable, and delete actions require backend worker-management APIs and are currently read-only actions.
-              </p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400">Use create, edit, disable, enable, and delete controls to manage workers.</p>
             </div>
           </CardBody>
         </Card>
@@ -242,24 +250,38 @@ export function WorkerManagement({
                       </button>
                       <button
                         type="button"
-                        disabled
-                        className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-400"
+                        onClick={() => {
+                          setSelectedWorker(worker);
+                          setProfileName(worker.workerName);
+                          setProfileEmail(worker.email);
+                          setProfileMessage(null);
+                        }}
+                        className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"
                       >
                         Edit
                       </button>
                       <button
                         type="button"
-                        disabled
-                        className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-400"
+                        onClick={() => {
+                          setWorkerActionLoadingId(worker.workerId);
+                          void onDeleteWorker(worker.workerId).finally(() => setWorkerActionLoadingId(null));
+                        }}
+                        disabled={workerActionLoadingId === worker.workerId}
+                        className="rounded-md border border-red-300 px-2 py-1 text-[11px] font-semibold text-red-700 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-red-700 dark:text-red-300"
                       >
-                        Delete
+                        {workerActionLoadingId === worker.workerId ? "Deleting..." : "Delete"}
                       </button>
                       <button
                         type="button"
-                        disabled
-                        className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-400"
+                        onClick={() => {
+                          setWorkerActionLoadingId(worker.workerId);
+                          const disable = worker.status !== "DISABLED";
+                          void onSetWorkerStatus(worker.workerId, disable).finally(() => setWorkerActionLoadingId(null));
+                        }}
+                        disabled={workerActionLoadingId === worker.workerId}
+                        className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-700 transition hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200"
                       >
-                        Disable
+                        {worker.status === "DISABLED" ? "Enable" : "Disable"}
                       </button>
                     </div>
                   </td>
@@ -334,7 +356,7 @@ export function WorkerManagement({
             <div className="mb-3 flex items-start justify-between gap-2">
               <div>
                 <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Worker Profile</h3>
-                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Derived profile from available issue assignment data.</p>
+                <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Edit worker profile details and persist through worker-management APIs.</p>
               </div>
               <button
                 type="button"
@@ -345,6 +367,22 @@ export function WorkerManagement({
               </button>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
+              <label className="space-y-1 text-sm sm:col-span-2">
+                <span className="text-xs uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">Name</span>
+                <input
+                  value={profileName}
+                  onChange={(event) => setProfileName(event.target.value)}
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-zinc-800 dark:text-zinc-100"
+                />
+              </label>
+              <label className="space-y-1 text-sm sm:col-span-2">
+                <span className="text-xs uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">Email</span>
+                <input
+                  value={profileEmail}
+                  onChange={(event) => setProfileEmail(event.target.value)}
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-zinc-800 dark:text-zinc-100"
+                />
+              </label>
               <p className="text-sm text-zinc-700 dark:text-zinc-200">
                 <span className="mr-1 text-xs uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">Name</span>
                 {selectedWorker.workerName}
@@ -369,6 +407,22 @@ export function WorkerManagement({
                 <span className="mr-1 text-xs uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">Resolved</span>
                 {selectedWorker.completed}
               </p>
+            </div>
+            {profileMessage ? <p className="mt-3 text-xs text-emerald-600 dark:text-emerald-300">{profileMessage}</p> : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setWorkerActionLoadingId(selectedWorker.workerId);
+                  void onUpdateWorker(selectedWorker.workerId, { name: profileName.trim(), email: profileEmail.trim() })
+                    .then(() => setProfileMessage("Worker profile updated."))
+                    .finally(() => setWorkerActionLoadingId(null));
+                }}
+                disabled={workerActionLoadingId === selectedWorker.workerId}
+                className="rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {workerActionLoadingId === selectedWorker.workerId ? "Saving..." : "Save Changes"}
+              </button>
             </div>
           </div>
         </div>
