@@ -196,6 +196,8 @@ func buildPublicFilter(location domain.GeoPoint, radiusMeters int64, statuses []
 }
 
 func (r *MongoIssueRepository) ListCitizenNearby(ctx context.Context, location domain.GeoPoint, radiusMeters int64, userID string, publicStatuses []domain.IssueStatus, limit int64) ([]*domain.Issue, error) {
+	_ = userID
+
 	filter := bson.M{
 		"location": bson.M{
 			"$nearSphere": bson.M{
@@ -209,8 +211,7 @@ func (r *MongoIssueRepository) ListCitizenNearby(ctx context.Context, location d
 				"status": bson.M{"$in": publicStatuses},
 			},
 			{
-				"status":          domain.StatusPendingApproval,
-				"createdByUserId": userID,
+				"status": domain.StatusPendingApproval,
 			},
 		},
 	}

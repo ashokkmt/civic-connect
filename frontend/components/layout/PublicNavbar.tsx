@@ -24,7 +24,10 @@ export function PublicNavbar() {
   React.useEffect(() => {
     const load = async () => {
       try {
-        const response = await fetch("/api/auth/me", { method: "GET" });
+        const response = await fetch("/api/auth/me", {
+          method: "GET",
+          cache: "no-store",
+        });
         const payload = (await response.json()) as MeResponse;
         setIsLoggedIn(response.ok && payload.success);
       } catch {
@@ -32,8 +35,8 @@ export function PublicNavbar() {
       }
     };
 
-    load();
-  }, []);
+    void load();
+  }, [pathname]);
 
   React.useEffect(() => {
     const onScroll = () => {
@@ -50,7 +53,8 @@ export function PublicNavbar() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
       setIsLoggedIn(false);
-      router.push("/");
+      router.replace("/");
+      router.refresh();
     } finally {
       setIsLoggingOut(false);
     }

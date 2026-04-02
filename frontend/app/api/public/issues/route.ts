@@ -42,6 +42,7 @@ export async function GET(request: Request) {
   try {
     const response = await fetch(`${backendBase}/api/v1/issues?${query.toString()}`, {
       method: "GET",
+      cache: "no-store",
     });
 
     const payload = await response.json().catch(() => ({

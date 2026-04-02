@@ -44,9 +44,10 @@ type LocationSearchResponse = {
 
 type ReportIssueProps = {
   onSuccessNavigate?: (viewId: "my_issues") => void;
+  onIssueReported?: () => void;
 };
 
-export function ReportIssue({ onSuccessNavigate }: ReportIssueProps) {
+export function ReportIssue({ onSuccessNavigate, onIssueReported }: ReportIssueProps) {
   const router = useRouter();
   const { location, setLocation } = useLocation();
 
@@ -234,6 +235,8 @@ export function ReportIssue({ onSuccessNavigate }: ReportIssueProps) {
       } else {
         setSuccessMessage("Issue matched an existing report. Your support was added.");
       }
+
+      onIssueReported?.();
 
       if (issueId) {
         router.push(`/dashboard/citizen/issues/${issueId}`);

@@ -82,7 +82,8 @@ export function CitizenShell({ title, subtitle, activeView, children }: CitizenS
     setLoggingOut(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/");
+      router.replace("/");
+      router.refresh();
     } finally {
       setLoggingOut(false);
     }

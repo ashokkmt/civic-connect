@@ -186,7 +186,8 @@ export function AuthorityWorkerDashboard() {
     setIsLoggingOut(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/");
+      router.replace("/");
+      router.refresh();
     } finally {
       setIsLoggingOut(false);
     }

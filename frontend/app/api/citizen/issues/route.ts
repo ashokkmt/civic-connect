@@ -41,6 +41,7 @@ export async function GET(request: Request) {
   try {
     const response = await fetch(`${backendBase}/api/v1/citizen/issues?${query.toString()}`, {
       method: "GET",
+      cache: "no-store",
       headers: { Authorization: `Bearer ${token}` },
     });
 

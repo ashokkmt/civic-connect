@@ -227,9 +227,6 @@ func (s *IssueService) GetCitizenByID(ctx context.Context, id primitive.ObjectID
 		return nil, errx.New("NOT_FOUND", "issue not found", 404)
 	}
 	if issue.Status == domain.StatusPendingApproval {
-		if issue.CreatedByUserID != userID {
-			return nil, errx.New("NOT_FOUND", "issue not found", 404)
-		}
 		return issue, nil
 	}
 	if !isPublicStatus(issue.Status) {

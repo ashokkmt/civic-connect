@@ -139,7 +139,8 @@ export function AccountSettings({ roleLabel }: AccountSettingsProps) {
 
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      router.push("/");
+      router.replace("/");
+      router.refresh();
     } catch {
       setError("Unable to logout. Please try again.");
     } finally {

@@ -47,11 +47,9 @@ export function CitizenDashboard() {
   const [activeView, setActiveView] = useState<CitizenView>("dashboard_overview");
 
   const [citizenIssues, setCitizenIssues] = useState<CitizenIssue[]>([]);
-  const [communityIssues, setCommunityIssues] = useState<CitizenIssue[]>([]);
   const [citizenLoading, setCitizenLoading] = useState(false);
-  const [communityLoading, setCommunityLoading] = useState(false);
   const [citizenError, setCitizenError] = useState<string | null>(null);
-  const [communityError, setCommunityError] = useState<string | null>(null);
+  const [refreshNonce, setRefreshNonce] = useState(0);
 
   const locationReady = useMemo(() => location && isValidLocation(location), [location]);
 
@@ -85,7 +83,10 @@ export function CitizenDashboard() {
       try {
         const response = await fetch(
           `/api/citizen/issues?lat=${lat}&lng=${lng}&radiusMeters=${DEFAULT_RADIUS}&limit=${DEFAULT_LIMIT}`,
-          { method: "GET" }
+          {
+            method: "GET",
+            cache: "no-store",
+          }
         );
         const payload = (await response.json()) as IssuesResponse;
 
@@ -104,40 +105,14 @@ export function CitizenDashboard() {
     };
 
     loadCitizenIssues();
-  }, [lat, lng, locationReady]);
+  }, [lat, lng, locationReady, refreshNonce]);
 
-  useEffect(() => {
-    if (!locationReady || typeof lat !== "number" || typeof lng !== "number") {
-      return;
-    }
+  const myIssues = useMemo(
+    () => citizenIssues.filter((issue) => Boolean(issue.isReporter || issue.isSupporter)),
+    [citizenIssues]
+  );
 
-    const loadCommunityIssues = async () => {
-      setCommunityLoading(true);
-      setCommunityError(null);
-
-      try {
-        const response = await fetch(
-          `/api/public/issues?lat=${lat}&lng=${lng}&radiusMeters=${DEFAULT_RADIUS}&limit=${DEFAULT_LIMIT}`,
-          { method: "GET" }
-        );
-        const payload = (await response.json()) as IssuesResponse;
-
-        if (!response.ok || !payload.success) {
-          setCommunityError(payload.error?.message ?? "Unable to load community issues");
-          setCommunityIssues([]);
-          return;
-        }
-
-        setCommunityIssues(payload.data?.items ?? []);
-      } catch {
-        setCommunityError("Unable to load community issues");
-      } finally {
-        setCommunityLoading(false);
-      }
-    };
-
-    loadCommunityIssues();
-  }, [lat, lng, locationReady]);
+  const communityIssues = useMemo(() => citizenIssues, [citizenIssues]);
 
   const currentMeta = VIEW_META[activeView];
 
@@ -156,7 +131,7 @@ export function CitizenDashboard() {
 
       {activeView === "my_issues" ? (
         <MyIssues
-          issues={citizenIssues}
+          issues={myIssues}
           loading={citizenLoading}
           error={citizenError}
           locationReady={Boolean(locationReady)}
@@ -166,14 +141,17 @@ export function CitizenDashboard() {
       {activeView === "community_issues" ? (
         <CommunityIssues
           issues={communityIssues}
-          loading={communityLoading}
-          error={communityError}
+          loading={citizenLoading}
+          error={citizenError}
           locationReady={Boolean(locationReady)}
         />
       ) : null}
 
       {activeView === "report_issue" ? (
-        <ReportIssue onSuccessNavigate={(viewId) => setView(viewId)} />
+        <ReportIssue
+          onSuccessNavigate={(viewId) => setView(viewId)}
+          onIssueReported={() => setRefreshNonce((prev) => prev + 1)}
+        />
       ) : null}
 
       {activeView === "profile_settings" ? <ProfileSettings /> : null}

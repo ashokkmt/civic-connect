@@ -15,10 +15,6 @@ function roleRedirectUrl(request: NextRequest, path: string) {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/dashboard/forbidden")) {
-    return NextResponse.next();
-  }
-
   const token = request.cookies.get("auth_token")?.value;
   if (!token) {
     return NextResponse.redirect(roleRedirectUrl(request, "/login"));
@@ -29,14 +25,31 @@ export async function middleware(request: NextRequest) {
   }
 
   const meResponse = await fetch(`${request.nextUrl.origin}/api/auth/me`, {
+    cache: "no-store",
     headers: {
       cookie: request.headers.get("cookie") ?? "",
     },
   });
 
+  if (!meResponse.ok) {
+    return NextResponse.redirect(roleRedirectUrl(request, "/login"));
+  }
+
   const payload = (await meResponse.json()) as MeResponse;
+  if (!payload.success) {
+    return NextResponse.redirect(roleRedirectUrl(request, "/login"));
+  }
+
   const role = payload.data?.user?.role;
   const subRole = payload.data?.user?.authoritySubRole;
+
+  if (!role) {
+    return NextResponse.redirect(roleRedirectUrl(request, "/login"));
+  }
+
+  if (pathname.startsWith("/dashboard/forbidden")) {
+    return NextResponse.next();
+  }
 
   if ((pathname.startsWith("/dashboard/citizen") || pathname.startsWith("/citizen")) && role !== "CITIZEN") {
     return NextResponse.redirect(roleRedirectUrl(request, "/dashboard/forbidden"));
