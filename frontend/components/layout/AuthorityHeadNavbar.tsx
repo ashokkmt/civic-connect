@@ -20,6 +20,10 @@ const VIEW_META: Record<HeadView, { title: string; subtitle: string }> = {
     title: "Pending Issues Moderation",
     subtitle: "Review and approve citizen-reported infrastructure and safety concerns.",
   },
+  assigned_issues: {
+    title: "Assigned Issues",
+    subtitle: "Track approved issues that are currently assigned or in progress.",
+  },
   worker_analytics: {
     title: "Worker Analytics",
     subtitle: "Compare output, pending load, and success rate across your team.",
