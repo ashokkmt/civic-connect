@@ -440,6 +440,19 @@ paths:
       responses:
         '200':
           description: Citizen issue list
+  /api/v1/citizen/issues/mine:
+    get:
+      summary: List issues reported by current citizen
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Reporter-specific issues list
     post:
       summary: Create or merge citizen issue
       security:

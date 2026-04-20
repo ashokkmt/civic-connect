@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Bell, LogOut, RefreshCcw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
-import type { WorkerView } from "@/components/layout/AuthorityWorkerSidebar";
+import type { WorkerView } from "@/components/dashboards/authority-worker/types";
 
 type AuthorityWorkerNavbarProps = {
   activeView: WorkerView;
@@ -24,6 +24,10 @@ const VIEW_META: Record<WorkerView, { title: string; subtitle: string }> = {
   submit_resolution: {
     title: "Submit Resolution",
     subtitle: "Document completed work and finalize with resolution notes.",
+  },
+  my_work: {
+    title: "My Work",
+    subtitle: "Browse your completed issues and submitted evidence.",
   },
 };
 

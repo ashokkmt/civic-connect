@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AssignedIssues } from "@/components/dashboards/authority-worker/AssignedIssues";
+import { MyWork } from "@/components/dashboards/authority-worker/MyWork";
 import { SubmitResolution } from "@/components/dashboards/authority-worker/SubmitResolution";
 import { WorkerDashboard } from "@/components/dashboards/authority-worker/WorkerDashboard";
 import type { WorkerIssue, WorkerResponse, WorkerView } from "@/components/dashboards/authority-worker/types";
@@ -189,14 +190,18 @@ export function AuthorityWorkerDashboard() {
   };
 
   const totalAssigned = issues.filter((issue) => issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS").length;
+  const totalCompleted = issues.filter(
+    (issue) => issue.status === "RESOLVED" || issue.status === "AWAITING_HEAD_CLOSURE" || issue.status === "CLOSED"
+  ).length;
 
   const sidebarItems = useMemo(
     () => [
       { id: "overview", label: "Dashboard", icon: LayoutDashboard },
       { id: "assigned_issues", label: "Assigned Issues", icon: ClipboardList, badge: `${totalAssigned}` },
       { id: "submit_resolution", label: "Submit Resolution", icon: Send, badge: `${inProgressIssues.length}` },
+      { id: "my_work", label: "My Work", icon: ClipboardList, badge: `${totalCompleted}` },
     ],
-    [inProgressIssues.length, totalAssigned]
+    [inProgressIssues.length, totalAssigned, totalCompleted]
   );
 
   const logout = async () => {
@@ -215,14 +220,18 @@ export function AuthorityWorkerDashboard() {
       ? "Worker Dashboard"
       : activeView === "assigned_issues"
         ? "Assigned Issues"
-        : "Resolution Submission";
+        : activeView === "submit_resolution"
+          ? "Resolution Submission"
+          : "My Work";
 
   const currentSubtitle =
     activeView === "overview"
       ? "Overview of your current assignments and progress."
       : activeView === "assigned_issues"
         ? "Review and handle your active maintenance tasks."
-        : "Document completed work and submit final notes.";
+        : activeView === "submit_resolution"
+          ? "Document completed work and submit final notes."
+          : "Review resolved issues and submitted evidence.";
 
   return (
     <div className="h-screen overflow-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -320,6 +329,10 @@ export function AuthorityWorkerDashboard() {
                     }
                     onSubmit={resolveIssue}
                   />
+                ) : null}
+
+                {activeView === "my_work" ? (
+                  <MyWork issues={issues} loading={loading} error={error} />
                 ) : null}
               </div>
             </main>

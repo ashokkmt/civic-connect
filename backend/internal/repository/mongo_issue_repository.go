@@ -237,6 +237,39 @@ func (r *MongoIssueRepository) ListCitizenNearby(ctx context.Context, location d
 	return out, nil
 }
 
+func (r *MongoIssueRepository) ListByReporter(ctx context.Context, reporterID string, limit int64) ([]*domain.Issue, error) {
+	if strings.TrimSpace(reporterID) == "" {
+		return nil, nil
+	}
+	if limit <= 0 {
+		limit = 100
+	}
+
+	filter := bson.M{
+		"createdByUserId": reporterID,
+		"isMerged":        bson.M{"$ne": true},
+	}
+
+	cur, err := r.col.Find(ctx, filter, options.Find().SetLimit(limit).SetSort(bson.D{{Key: "createdAt", Value: -1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cur.Close(ctx)
+
+	out := make([]*domain.Issue, 0)
+	for cur.Next(ctx) {
+		var issue domain.Issue
+		if err := cur.Decode(&issue); err != nil {
+			return nil, err
+		}
+		out = append(out, &issue)
+	}
+	if err := cur.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (r *MongoIssueRepository) ListAuthorityByDepartment(ctx context.Context, departmentID, authorityID string, statuses []domain.IssueStatus, limit int64) ([]*domain.Issue, error) {
 	filter := bson.M{
 		"departmentId": departmentID,
@@ -514,6 +547,18 @@ func (r *MongoIssueRepository) AddSupporter(ctx context.Context, id primitive.Ob
 		return false, err
 	}
 	return res.ModifiedCount > 0, nil
+}
+
+func (r *MongoIssueRepository) HasSupporter(ctx context.Context, id primitive.ObjectID, userID string) (bool, error) {
+	count, err := r.col.CountDocuments(ctx, bson.M{
+		"_id":              id,
+		"supporterUserIds": userID,
+		"isMerged":         bson.M{"$ne": true},
+	})
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func (r *MongoIssueRepository) DeleteByIDAndReporter(ctx context.Context, id primitive.ObjectID, reporterID string) error {

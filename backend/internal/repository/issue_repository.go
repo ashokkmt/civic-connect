@@ -17,6 +17,7 @@ type IssueRepository interface {
 	ListPublicNearby(ctx context.Context, location domain.GeoPoint, radiusMeters int64, statuses []domain.IssueStatus, limit int64, offset int64, filters PublicIssueFilters) ([]*domain.Issue, error)
 	StatsPublicNearby(ctx context.Context, location domain.GeoPoint, radiusMeters int64, statuses []domain.IssueStatus, filters PublicIssueFilters) (PublicIssueStats, error)
 	ListCitizenNearby(ctx context.Context, location domain.GeoPoint, radiusMeters int64, userID string, publicStatuses []domain.IssueStatus, limit int64) ([]*domain.Issue, error)
+	ListByReporter(ctx context.Context, reporterID string, limit int64) ([]*domain.Issue, error)
 	ListAuthorityByDepartment(ctx context.Context, departmentID, authorityID string, statuses []domain.IssueStatus, limit int64) ([]*domain.Issue, error)
 	ListPending(ctx context.Context, departmentID string, limit int64) ([]*domain.Issue, error)
 	ApproveIssue(ctx context.Context, id primitive.ObjectID, adminID, departmentID, severity, workerID string, reviewedAt time.Time) error
@@ -27,6 +28,7 @@ type IssueRepository interface {
 	ConfirmResolution(ctx context.Context, id primitive.ObjectID, reporterID string, confirmedAt time.Time) error
 	CloseIssue(ctx context.Context, id primitive.ObjectID, departmentID string, closedAt time.Time) error
 	AddSupporter(ctx context.Context, id primitive.ObjectID, userID string, allowedStatuses []domain.IssueStatus) (bool, error)
+	HasSupporter(ctx context.Context, id primitive.ObjectID, userID string) (bool, error)
 	DeleteByIDAndReporter(ctx context.Context, id primitive.ObjectID, reporterID string) error
 	MarkMerged(ctx context.Context, id, canonicalID primitive.ObjectID) error
 	UpdatePriorityScore(ctx context.Context, id primitive.ObjectID, score float64, updatedAt time.Time) error

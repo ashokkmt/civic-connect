@@ -3,6 +3,7 @@ import { IssueHeader } from "@/components/issues/detail/IssueHeader";
 import { MapCard } from "@/components/issues/detail/MapCard";
 import { MetadataCards } from "@/components/issues/detail/MetadataCards";
 import { ReporterCard } from "@/components/issues/detail/ReporterCard";
+import { ResolutionDetails } from "./ResolutionDetails";
 import { StatusTimeline, type StatusTimelineItem } from "@/components/issues/detail/StatusTimeline";
 import { SupportSidebar } from "@/components/issues/detail/SupportSidebar";
 
@@ -16,6 +17,8 @@ export type IssueDetailData = {
   createdAt?: string;
   departmentId?: string;
   imageUrls?: string[];
+  resolutionImageUrls?: string[];
+  resolutionNotes?: string;
   location?: {
     coordinates?: [number, number];
   };
@@ -101,6 +104,11 @@ export function IssueDetailView({ issue, backHref, backLabel = "Issues List" }: 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.85fr)_minmax(280px,1fr)]">
         <div className="space-y-4">
           <ImageGallery imageUrls={issue.imageUrls} />
+          <ResolutionDetails
+            resolutionNotes={issue.resolutionNotes}
+            resolutionImageUrls={issue.resolutionImageUrls}
+            status={issue.status}
+          />
           <MetadataCards issueId={issue.id} coordinates={coordinates} createdAt={issue.createdAt} />
           <StatusTimeline items={timeline} />
         </div>

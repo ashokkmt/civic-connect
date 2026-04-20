@@ -33,12 +33,25 @@ export function CitizenIssueActions({
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [supported, setSupported] = useState(isSupporter);
   const [flagged, setFlagged] = useState(isFlagged);
+  const [confirmed, setConfirmed] = useState(status === "AWAITING_HEAD_CLOSURE" || status === "CLOSED");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const canSupport = !isReporter && !supported;
-  const canFlag = !isReporter && !flagged;
-  const canConfirmResolution = isReporter && status === "RESOLVED";
+  const oneActionTaken = supported || flagged;
+  const canSupport = !isReporter && !oneActionTaken;
+  const canFlag = !isReporter && !oneActionTaken;
+  const canConfirmResolution = isReporter && status === "RESOLVED" && !confirmed;
+
+  const applyConflictState = (message?: string) => {
+    const normalized = message?.toLowerCase() ?? "";
+    if (normalized.includes("flag")) {
+      setFlagged(true);
+      setSupported(false);
+      return;
+    }
+    setSupported(true);
+    setFlagged(false);
+  };
 
   const supportIssue = async () => {
     setSupportLoading(true);
@@ -53,9 +66,12 @@ export function CitizenIssueActions({
       const payload = (await response.json()) as ActionResponse;
 
       if (!response.ok || !payload.success) {
-        if (response.status === 409 || payload.error?.code === "DUPLICATE_SUPPORT") {
-          setSupported(true);
-          setMessage("You already support this issue.");
+        if (
+          response.status === 409 &&
+          (payload.error?.code === "DUPLICATE_SUPPORT" || payload.error?.code === "ACTION_ALREADY_TAKEN")
+        ) {
+          applyConflictState(payload.error?.message);
+          setMessage(payload.error?.message ?? "You already support this issue.");
           return;
         }
         setError(payload.error?.message ?? "Unable to support this issue.");
@@ -64,6 +80,7 @@ export function CitizenIssueActions({
 
       onSupportStateChange?.(true, supported);
       setSupported(true);
+      setFlagged(false);
       setMessage("Support added successfully.");
     } catch {
       setError("Unable to support this issue.");
@@ -87,9 +104,12 @@ export function CitizenIssueActions({
       const payload = (await response.json()) as ActionResponse;
 
       if (!response.ok || !payload.success) {
-        if (response.status === 409 || payload.error?.code === "DUPLICATE_FLAG") {
-          setFlagged(true);
-          setMessage("You already flagged this issue.");
+        if (
+          response.status === 409 &&
+          (payload.error?.code === "DUPLICATE_FLAG" || payload.error?.code === "ACTION_ALREADY_TAKEN")
+        ) {
+          applyConflictState(payload.error?.message);
+          setMessage(payload.error?.message ?? "You already flagged this issue.");
           return;
         }
         setError(payload.error?.message ?? "Unable to flag this issue.");
@@ -98,6 +118,7 @@ export function CitizenIssueActions({
 
       onFlagStateChange?.(true, flagged);
       setFlagged(true);
+      setSupported(false);
       setMessage("Issue flagged for admin review.");
     } catch {
       setError("Unable to flag this issue.");
@@ -123,6 +144,7 @@ export function CitizenIssueActions({
         return;
       }
 
+      setConfirmed(true);
       setMessage("Resolution confirmed. Awaiting authority head closure.");
     } catch {
       setError("Unable to confirm resolution.");
@@ -166,16 +188,18 @@ export function CitizenIssueActions({
           {flagLoading ? "Flagging..." : flagged ? "Flagged" : "Flag Issue"}
         </button>
 
-        <button
-          type="button"
-          onClick={confirmResolution}
-          disabled={!canConfirmResolution || confirmLoading}
-          className={`rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-zinc-900 ${
-            stacked ? "w-full" : ""
-          }`}
-        >
-          {confirmLoading ? "Confirming..." : "Confirm resolution"}
-        </button>
+        {isReporter ? (
+          <button
+            type="button"
+            onClick={confirmResolution}
+            disabled={!canConfirmResolution || confirmLoading}
+            className={`rounded-lg bg-zinc-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-white dark:text-zinc-900 ${
+              stacked ? "w-full" : ""
+            }`}
+          >
+            {confirmLoading ? "Confirming..." : confirmed ? "Confirmed" : "Confirm resolution"}
+          </button>
+        ) : null}
       </div>
 
       {message ? <p className="text-xs text-emerald-700 dark:text-emerald-300">{message}</p> : null}

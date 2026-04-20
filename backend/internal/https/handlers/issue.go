@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"strconv"
@@ -71,7 +72,7 @@ func (h IssueHandler) Create(w http.ResponseWriter, r *http.Request) {
 	payload := map[string]interface{}{
 		"created":        result.Created,
 		"supporterAdded": result.SupporterAdded,
-		"issue":          toIssuePublicDTO(result.Issue, principal.UserID),
+		"issue":          h.toIssuePublicDTOWithUser(r.Context(), result.Issue, principal.UserID),
 	}
 	if result.MergedIntoIssueID != nil {
 		payload["mergedIntoIssueId"] = result.MergedIntoIssueID.Hex()
@@ -256,7 +257,7 @@ func (h IssueHandler) GetPublic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue, "")})
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": h.toIssuePublicDTOWithUser(r.Context(), issue, "")})
 }
 
 func (h IssueHandler) ListCitizen(w http.ResponseWriter, r *http.Request) {
@@ -299,7 +300,38 @@ func (h IssueHandler) ListCitizen(w http.ResponseWriter, r *http.Request) {
 
 	resp := make([]issuePublicDTO, 0, len(issues))
 	for _, issue := range issues {
-		resp = append(resp, toIssuePublicDTO(issue, principal.UserID))
+		resp = append(resp, h.toIssuePublicDTOWithUser(r.Context(), issue, principal.UserID))
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"items": resp})
+}
+
+func (h IssueHandler) ListCitizenMine(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+		return
+	}
+
+	limit := int64(0)
+	if val, ok := parseFloatQuery(r, "limit"); ok {
+		limit = int64(val)
+	}
+
+	issues, err := h.Issues.ListByReporter(r.Context(), principal.UserID, limit)
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	resp := make([]issuePublicDTO, 0, len(issues))
+	for _, issue := range issues {
+		resp = append(resp, h.toIssuePublicDTOWithUser(r.Context(), issue, principal.UserID))
 	}
 
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"items": resp})
@@ -329,7 +361,7 @@ func (h IssueHandler) GetCitizen(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue, principal.UserID)})
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": h.toIssuePublicDTOWithUser(r.Context(), issue, principal.UserID)})
 }
 
 func (h IssueHandler) DeleteCitizen(w http.ResponseWriter, r *http.Request) {
@@ -384,7 +416,7 @@ func (h IssueHandler) Support(w http.ResponseWriter, r *http.Request) {
 
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{
 		"supporterAdded": added,
-		"issue":          toIssuePublicDTO(issue, principal.UserID),
+		"issue":          h.toIssuePublicDTOWithUser(r.Context(), issue, principal.UserID),
 	})
 }
 
@@ -412,7 +444,7 @@ func (h IssueHandler) ConfirmResolution(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue, principal.UserID)})
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": h.toIssuePublicDTOWithUser(r.Context(), issue, principal.UserID)})
 }
 
 func (h IssueHandler) Flag(w http.ResponseWriter, r *http.Request) {
@@ -486,6 +518,7 @@ type issuePublicDTO struct {
 	ReporterEmail       string             `json:"reporterEmail,omitempty"`
 	ImageURLs           []string           `json:"imageUrls,omitempty"`
 	ResolutionImageURLs []string           `json:"resolutionImageUrls,omitempty"`
+	ResolutionNotes     string             `json:"resolutionNotes,omitempty"`
 	Location            domain.GeoPoint    `json:"location"`
 	Status              domain.IssueStatus `json:"status"`
 	SupporterCount      int                `json:"supporterCount"`
@@ -494,11 +527,12 @@ type issuePublicDTO struct {
 	FlagsCount          int                `json:"flagsCount"`
 	IsReporter          bool               `json:"isReporter"`
 	IsSupporter         bool               `json:"isSupporter"`
+	IsFlagged           bool               `json:"isFlagged"`
 	CreatedAt           string             `json:"createdAt"`
 	UpdatedAt           string             `json:"updatedAt"`
 }
 
-func toIssuePublicDTO(issue *domain.Issue, userID string) issuePublicDTO {
+func (h IssueHandler) toIssuePublicDTOWithUser(ctx context.Context, issue *domain.Issue, userID string) issuePublicDTO {
 	if issue == nil {
 		return issuePublicDTO{}
 	}
@@ -515,6 +549,14 @@ func toIssuePublicDTO(issue *domain.Issue, userID string) issuePublicDTO {
 		}
 	}
 
+	isFlagged := false
+	if userID != "" && h.Flags != nil {
+		flagged, err := h.Flags.ExistsByIssueAndReporter(ctx, issue.ID, userID)
+		if err == nil {
+			isFlagged = flagged
+		}
+	}
+
 	return issuePublicDTO{
 		ID:                  issue.ID.Hex(),
 		Title:               issue.Title,
@@ -522,6 +564,7 @@ func toIssuePublicDTO(issue *domain.Issue, userID string) issuePublicDTO {
 		ReporterID:          issue.CreatedByUserID,
 		ImageURLs:           issue.ImageURLs,
 		ResolutionImageURLs: issue.Authority.ResolutionImageURLs,
+		ResolutionNotes:     issue.Authority.ResolutionNotes,
 		Location:            issue.Location,
 		Status:              issue.Status,
 		SupporterCount:      issue.SupporterCount,
@@ -530,9 +573,14 @@ func toIssuePublicDTO(issue *domain.Issue, userID string) issuePublicDTO {
 		FlagsCount:          issue.FlagsCount,
 		IsReporter:          isReporter,
 		IsSupporter:         isSupporter,
+		IsFlagged:           isFlagged,
 		CreatedAt:           issue.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:           issue.UpdatedAt.Format(time.RFC3339),
 	}
+}
+
+func toIssuePublicDTO(issue *domain.Issue, userID string) issuePublicDTO {
+	return IssueHandler{}.toIssuePublicDTOWithUser(context.Background(), issue, userID)
 }
 
 func parseFloatQuery(r *http.Request, key string) (float64, bool) {

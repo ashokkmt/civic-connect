@@ -11,7 +11,6 @@ type MyIssuesProps = {
   issues: CitizenIssue[];
   loading: boolean;
   error: string | null;
-  locationReady: boolean;
   onIssueDeleted?: () => void;
 };
 
@@ -20,7 +19,7 @@ type DeleteIssueResponse = {
   error?: { message?: string };
 };
 
-export function MyIssues({ issues, loading, error, locationReady, onIssueDeleted }: MyIssuesProps) {
+export function MyIssues({ issues, loading, error, onIssueDeleted }: MyIssuesProps) {
   const [visibleIssues, setVisibleIssues] = useState<CitizenIssue[]>(issues);
   const [deletingIssueId, setDeletingIssueId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -61,15 +60,6 @@ export function MyIssues({ issues, loading, error, locationReady, onIssueDeleted
     }
   };
 
-  if (!locationReady) {
-    return (
-      <EmptyState
-        title="Location required"
-        description="Set your location on the public homepage to view your nearby issue list."
-      />
-    );
-  }
-
   if (loading) {
     return <div className="h-56 animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)]" />;
   }
@@ -79,7 +69,7 @@ export function MyIssues({ issues, loading, error, locationReady, onIssueDeleted
   }
 
   if (visibleIssues.length === 0) {
-    return <EmptyState title="No issues found" description="You have not reported or supported any nearby issues yet." />;
+    return <EmptyState title="No issues found" description="You have not reported any issues yet." />;
   }
 
   const inProgress = visibleIssues.filter((issue) => issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS").length;

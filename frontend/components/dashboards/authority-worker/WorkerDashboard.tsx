@@ -19,7 +19,8 @@ type WorkerDashboardProps = {
 export function WorkerDashboard({ issues, onNavigate }: WorkerDashboardProps) {
   const assigned = issues.filter((issue) => issue.status === "ASSIGNED");
   const inProgress = issues.filter((issue) => issue.status === "IN_PROGRESS");
-  const resolved = issues.filter((issue) => issue.status === "RESOLVED");
+  const completed = issues.filter((issue) => issue.status === "CLOSED");
+  const pendingReview = issues.filter((issue) => isPendingReviewStatus(issue.status));
   const activeTasks = issues
     .filter((issue) => issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS")
     .slice(0, 3);
@@ -65,7 +66,7 @@ export function WorkerDashboard({ issues, onNavigate }: WorkerDashboardProps) {
             <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Completed</span>
             <CheckCircle2 className="h-5 w-5 text-emerald-500" />
           </div>
-          <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">{resolved.length}</p>
+          <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">{completed.length}</p>
           <p className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400">
             <TrendingDown className="h-3.5 w-3.5" />
             -5% daily output
@@ -77,7 +78,7 @@ export function WorkerDashboard({ issues, onNavigate }: WorkerDashboardProps) {
             <span className="text-sm font-medium text-slate-500 dark:text-slate-400">Pending Review</span>
             <ListChecks className="h-5 w-5 text-slate-400" />
           </div>
-          <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">{Math.max(assigned.length - inProgress.length, 0)}</p>
+          <p className="text-3xl font-bold text-slate-900 dark:text-slate-100">{pendingReview.length}</p>
           <p className="mt-2 text-xs font-bold text-slate-500 dark:text-slate-400">Same as last week</p>
         </div>
       </div>
@@ -200,10 +201,15 @@ export function WorkerDashboard({ issues, onNavigate }: WorkerDashboardProps) {
             <div className="h-full w-[70%] bg-[#1173d4]" />
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            You are on track. Only {Math.max(30 - resolved.length, 0)} more tasks to reach your monthly goal.
+            You are on track. Only {Math.max(30 - completed.length, 0)} more tasks to reach your monthly goal.
           </p>
         </div>
       </div>
     </section>
   );
+}
+
+function isPendingReviewStatus(status: string) {
+  // Compatibility: some flows still expose RESOLVED before final head closure.
+  return status === "AWAITING_HEAD_CLOSURE" || status === "RESOLVED_PENDING_CONFIRMATION" || status === "RESOLVED";
 }

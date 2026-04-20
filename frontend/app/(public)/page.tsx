@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { HeroSection } from "@/components/home/HeroSection";
 import { MetricsSection } from "@/components/home/MetricsSection";
 import { RecentIssuesSlider } from "@/components/home/RecentIssuesSlider";
@@ -46,6 +46,8 @@ const MAX_RESOLVED_MARQUEE = 12;
 
 export default function HomePage() {
   const { location } = useLocation();
+  const lat = location?.lat;
+  const lng = location?.lng;
   const [issues, setIssues] = useState<IssuePublic[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,26 +71,26 @@ export default function HomePage() {
       .slice(0, MAX_RESOLVED_MARQUEE);
   }, [issues, resolvedIssues]);
 
-  const computeStatsFromIssues = (items: IssuePublic[]) => {
+  const computeStatsFromIssues = useCallback((items: IssuePublic[]) => {
     const total = items.length;
     const pendingApprovals = items.filter((issue) => issue.status === "PENDING_APPROVAL").length;
     const inProgress = items.filter((issue) => issue.status === "IN_PROGRESS").length;
     const resolved = items.filter((issue) => ["RESOLVED", "CLOSED"].includes(issue.status)).length;
 
     return { total, pendingApprovals, inProgress, resolved };
-  };
+  }, []);
 
-  const loadIssues = async (lat: number, lng: number, signal?: AbortSignal) => {
+  const loadIssues = useCallback(async (nextLat: number, nextLng: number, signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
 
     try {
       const [issuesResponse, statsResponse] = await Promise.all([
         fetch(
-          `/api/public/issues?lat=${lat}&lng=${lng}&radiusMeters=${DEFAULT_RADIUS}&limit=${DEFAULT_LIMIT}`,
+          `/api/public/issues?lat=${nextLat}&lng=${nextLng}&radiusMeters=${DEFAULT_RADIUS}&limit=${DEFAULT_LIMIT}`,
           { method: "GET", signal }
         ),
-        fetch(`/api/public/issues/stats?lat=${lat}&lng=${lng}&radiusMeters=${DEFAULT_RADIUS}`, {
+        fetch(`/api/public/issues/stats?lat=${nextLat}&lng=${nextLng}&radiusMeters=${DEFAULT_RADIUS}`, {
           method: "GET",
           signal,
         }),
@@ -120,16 +122,16 @@ export default function HomePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [computeStatsFromIssues]);
 
   useEffect(() => {
-    if (!locationReady || !location) {
+    if (!locationReady || typeof lat !== "number" || typeof lng !== "number") {
       return;
     }
     const controller = new AbortController();
-    loadIssues(location.lat, location.lng, controller.signal);
+    void loadIssues(lat, lng, controller.signal);
     return () => controller.abort();
-  }, [locationReady, location?.lat, location?.lng]);
+  }, [locationReady, lat, lng, loadIssues]);
 
   return (
     <div className="home-tone relative">

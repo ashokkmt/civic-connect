@@ -1,6 +1,4 @@
-import type { WorkerView } from "@/components/layout/AuthorityWorkerSidebar";
-
-export type { WorkerView };
+export type WorkerView = "overview" | "assigned_issues" | "submit_resolution" | "my_work";
 
 export type WorkerIssue = {
   id: string;
@@ -23,6 +21,13 @@ export type WorkerIssue = {
     startedAt?: string;
     deadlineAt?: string;
     resolvedAt?: string;
+    resolutionNotes?: string;
+    resolutionImageUrls?: string[];
+  };
+  lifecycle?: {
+    assignedAt?: string;
+    resolvedAt?: string;
+    closedAt?: string;
   };
 };
 

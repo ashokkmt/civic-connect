@@ -42,6 +42,9 @@ func (s *AuthorityService) ListByDepartment(ctx context.Context, departmentID, a
 	statuses := []domain.IssueStatus{
 		domain.StatusAssigned,
 		domain.StatusInProgress,
+		domain.StatusResolved,
+		domain.StatusAwaitingHeadClose,
+		domain.StatusClosed,
 	}
 	workerFilter := authorityID
 	if isHead {

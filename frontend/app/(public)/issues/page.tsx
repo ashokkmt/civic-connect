@@ -31,6 +31,8 @@ const PAGE_SIZE = 6;
 
 export default function IssuesPage() {
   const { location } = useLocation();
+  const lat = location?.lat;
+  const lng = location?.lng;
   const [issues, setIssues] = useState<IssuePublic[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,8 +70,8 @@ export default function IssuesPage() {
 
       try {
         const queryParams = new URLSearchParams({
-          lat: String(location!.lat),
-          lng: String(location!.lng),
+          lat: String(lat),
+          lng: String(lng),
           radiusMeters: distanceFilter !== "all" ? distanceFilter : String(DEFAULT_RADIUS),
           limit: String(PAGE_SIZE),
           offset: "0",
@@ -122,8 +124,8 @@ export default function IssuesPage() {
     return () => controller.abort();
   }, [
     locationReady,
-    location?.lat,
-    location?.lng,
+    lat,
+    lng,
     statusFilter,
     categoryFilter,
     severityFilter,
@@ -140,8 +142,8 @@ export default function IssuesPage() {
 
     try {
       const queryParams = new URLSearchParams({
-        lat: String(location!.lat),
-        lng: String(location!.lng),
+        lat: String(lat),
+        lng: String(lng),
         radiusMeters: distanceFilter !== "all" ? distanceFilter : String(DEFAULT_RADIUS),
         limit: String(PAGE_SIZE),
         offset: String(issues.length),

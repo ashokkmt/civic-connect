@@ -22,7 +22,7 @@ const VIEW_META: Record<CitizenView, { title: string; subtitle: string }> = {
   },
   my_issues: {
     title: "My Issues",
-    subtitle: "Review issues you reported or supported nearby.",
+    subtitle: "Review issues you reported and track their status.",
   },
   community_issues: {
     title: "Community Issues",
@@ -49,6 +49,9 @@ export function CitizenDashboard() {
   const [citizenIssues, setCitizenIssues] = useState<CitizenIssue[]>([]);
   const [citizenLoading, setCitizenLoading] = useState(false);
   const [citizenError, setCitizenError] = useState<string | null>(null);
+  const [myIssues, setMyIssues] = useState<CitizenIssue[]>([]);
+  const [myIssuesLoading, setMyIssuesLoading] = useState(false);
+  const [myIssuesError, setMyIssuesError] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
 
   const locationReady = useMemo(() => location && isValidLocation(location), [location]);
@@ -107,12 +110,37 @@ export function CitizenDashboard() {
     loadCitizenIssues();
   }, [lat, lng, locationReady, refreshNonce]);
 
-  const myIssues = useMemo(
-    () => citizenIssues.filter((issue) => Boolean(issue.isReporter || issue.isSupporter)),
-    [citizenIssues]
-  );
-
   const communityIssues = useMemo(() => citizenIssues, [citizenIssues]);
+
+  useEffect(() => {
+    const loadMyIssues = async () => {
+      setMyIssuesLoading(true);
+      setMyIssuesError(null);
+
+      try {
+        const response = await fetch(`/api/citizen/issues/mine?limit=${DEFAULT_LIMIT}`, {
+          method: "GET",
+          cache: "no-store",
+        });
+        const payload = (await response.json()) as IssuesResponse;
+
+        if (!response.ok || !payload.success) {
+          setMyIssuesError(payload.error?.message ?? "Unable to load your issues");
+          setMyIssues([]);
+          return;
+        }
+
+        setMyIssues(payload.data?.items ?? []);
+      } catch {
+        setMyIssuesError("Unable to load your issues");
+        setMyIssues([]);
+      } finally {
+        setMyIssuesLoading(false);
+      }
+    };
+
+    void loadMyIssues();
+  }, [refreshNonce]);
 
   const currentMeta = VIEW_META[activeView];
 
@@ -132,9 +160,8 @@ export function CitizenDashboard() {
       {activeView === "my_issues" ? (
         <MyIssues
           issues={myIssues}
-          loading={citizenLoading}
-          error={citizenError}
-          locationReady={Boolean(locationReady)}
+          loading={myIssuesLoading}
+          error={myIssuesError}
           onIssueDeleted={() => setRefreshNonce((prev) => prev + 1)}
         />
       ) : null}

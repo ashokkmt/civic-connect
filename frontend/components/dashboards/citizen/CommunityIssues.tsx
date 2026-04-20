@@ -36,13 +36,23 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
   const [selectedId, setSelectedId] = useState("");
 
   const selectedIssue = sortedIssues.find((issue) => issue.id === selectedId) ?? sortedIssues[0];
+  const hasChosenAction = Boolean(selectedIssue?.isSupporter || selectedIssue?.isFlagged);
 
   const updateIssueState = (issueId: string, mutator: (item: CitizenIssue) => CitizenIssue) => {
     setLocalIssues((prev) => prev.map((item) => (item.id === issueId ? mutator(item) : item)));
   };
 
+  const applyConflictState = (issueId: string, message?: string) => {
+    const normalized = message?.toLowerCase() ?? "";
+    if (normalized.includes("flag")) {
+      updateIssueState(issueId, (item) => ({ ...item, isFlagged: true, isSupporter: false }));
+      return;
+    }
+    updateIssueState(issueId, (item) => ({ ...item, isSupporter: true, isFlagged: false }));
+  };
+
   const supportIssue = async () => {
-    if (!selectedIssue || selectedIssue.isSupporter || selectedIssue.isReporter) {
+    if (!selectedIssue || hasChosenAction || selectedIssue.isReporter) {
       return;
     }
 
@@ -60,9 +70,12 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
       } | null;
 
       if (!response.ok || !payload?.success) {
-        if (response.status === 409 || payload?.error?.code === "DUPLICATE_SUPPORT") {
-          updateIssueState(selectedIssue.id, (item) => ({ ...item, isSupporter: true }));
-          setActionMessage("You already support this issue.");
+        if (
+          response.status === 409 &&
+          (payload?.error?.code === "DUPLICATE_SUPPORT" || payload?.error?.code === "ACTION_ALREADY_TAKEN")
+        ) {
+          applyConflictState(selectedIssue.id, payload?.error?.message);
+          setActionMessage(payload?.error?.message ?? "You already support this issue.");
           return;
         }
         setActionError(payload?.error?.message ?? "Unable to support this issue.");
@@ -72,6 +85,7 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
       updateIssueState(selectedIssue.id, (item) => ({
         ...item,
         isSupporter: true,
+        isFlagged: false,
         supporterCount: (item.supporterCount ?? 0) + 1,
       }));
       setActionMessage("Support recorded.");
@@ -83,7 +97,7 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
   };
 
   const flagIssue = async () => {
-    if (!selectedIssue || selectedIssue.isFlagged || selectedIssue.isReporter) {
+    if (!selectedIssue || hasChosenAction || selectedIssue.isReporter) {
       return;
     }
 
@@ -103,9 +117,12 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
       } | null;
 
       if (!response.ok || !payload?.success) {
-        if (response.status === 409 || payload?.error?.code === "DUPLICATE_FLAG") {
-          updateIssueState(selectedIssue.id, (item) => ({ ...item, isFlagged: true }));
-          setActionMessage("You already flagged this issue.");
+        if (
+          response.status === 409 &&
+          (payload?.error?.code === "DUPLICATE_FLAG" || payload?.error?.code === "ACTION_ALREADY_TAKEN")
+        ) {
+          applyConflictState(selectedIssue.id, payload?.error?.message);
+          setActionMessage(payload?.error?.message ?? "You already flagged this issue.");
           return;
         }
         setActionError(payload?.error?.message ?? "Unable to flag this issue.");
@@ -115,6 +132,7 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
       updateIssueState(selectedIssue.id, (item) => ({
         ...item,
         isFlagged: true,
+        isSupporter: false,
         flagsCount: (item.flagsCount ?? 0) + 1,
       }));
       setActionMessage("Issue flagged for review.");
@@ -256,7 +274,7 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
               <button
                 type="button"
                 onClick={supportIssue}
-                disabled={Boolean(selectedIssue.isSupporter || selectedIssue.isReporter || actionLoading)}
+                disabled={Boolean(hasChosenAction || selectedIssue.isReporter || actionLoading)}
                 className="rounded-xl bg-sky-600 py-3 text-sm font-bold text-white"
               >
                 {actionLoading === "support" ? "Supporting..." : selectedIssue.isSupporter ? "Supported" : "Support Issue"}
@@ -264,7 +282,7 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
               <button
                 type="button"
                 onClick={flagIssue}
-                disabled={Boolean(selectedIssue.isFlagged || selectedIssue.isReporter || actionLoading)}
+                disabled={Boolean(hasChosenAction || selectedIssue.isReporter || actionLoading)}
                 className="rounded-xl border border-slate-200 py-3 text-sm font-bold text-slate-600 dark:border-slate-700 dark:text-slate-300"
               >
                 {actionLoading === "flag" ? "Flagging..." : selectedIssue.isFlagged ? "Flagged" : "Flag Issue"}

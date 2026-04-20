@@ -172,6 +172,16 @@ func (s *IssueService) SupportIssue(ctx context.Context, id primitive.ObjectID, 
 		return nil, false, errx.New("UNAUTHORIZED", "missing user", 401)
 	}
 
+	if s.flags != nil {
+		flagged, err := s.flags.ExistsByIssueAndReporter(ctx, id, userID)
+		if err != nil {
+			return nil, false, errx.New("INTERNAL_ERROR", "could not verify flag status", 500)
+		}
+		if flagged {
+			return nil, false, errx.New("ACTION_ALREADY_TAKEN", "you already flagged this issue", 409)
+		}
+	}
+
 	active := activeSupportStatuses()
 	added, err := s.issues.AddSupporter(ctx, id, userID, active)
 	if err != nil {
@@ -194,6 +204,21 @@ func (s *IssueService) SupportIssue(ctx context.Context, id primitive.ObjectID, 
 	}
 	_ = s.refreshPriority(ctx, issue, time.Now())
 	return issue, true, nil
+}
+
+func (s *IssueService) ListByReporter(ctx context.Context, userID string, limit int64) ([]*domain.Issue, error) {
+	if strings.TrimSpace(userID) == "" {
+		return nil, errx.New("UNAUTHORIZED", "missing user", 401)
+	}
+	if limit <= 0 {
+		limit = publicDefaultLimit
+	}
+
+	issues, err := s.issues.ListByReporter(ctx, userID, limit)
+	if err != nil {
+		return nil, errx.New("INTERNAL_ERROR", "could not list reporter issues", 500)
+	}
+	return issues, nil
 }
 
 func (s *IssueService) refreshPriority(ctx context.Context, issue *domain.Issue, now time.Time) error {

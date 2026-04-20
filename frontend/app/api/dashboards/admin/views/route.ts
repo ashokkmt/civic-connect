@@ -5,7 +5,7 @@ const TOKEN_COOKIE = "auth_token";
 
 type BackendResult = {
   response: Response;
-  payload: any;
+  payload: Record<string, unknown>;
 };
 
 async function fetchBackend(url: string, token: string): Promise<BackendResult> {
@@ -15,12 +15,16 @@ async function fetchBackend(url: string, token: string): Promise<BackendResult> 
     cache: "no-store",
   });
 
-  const payload = await response.json().catch(() => ({
+  const payload = (await response.json().catch(() => ({
     success: false,
     error: { code: "INVALID_RESPONSE", message: "Backend returned invalid JSON" },
-  }));
+  }))) as Record<string, unknown>;
 
   return { response, payload };
+}
+
+function getPayloadData(payload: Record<string, unknown>) {
+  return (payload.data as Record<string, unknown> | undefined) ?? {};
 }
 
 export async function GET(request: Request) {
@@ -63,11 +67,11 @@ export async function GET(request: Request) {
       {
         success: true,
         data: {
-          profile: profileResult.response.ok ? profileResult.payload?.data?.user ?? null : null,
-          escalations: escalationsResult.payload?.data?.items ?? [],
-          departments: departmentsResult.payload?.data?.items ?? [],
-          metrics: metricsResult.payload?.data ?? {},
-          authorities: authoritiesResult.payload?.data?.items ?? [],
+          profile: profileResult.response.ok ? getPayloadData(profileResult.payload).user ?? null : null,
+          escalations: getPayloadData(escalationsResult.payload).items ?? [],
+          departments: getPayloadData(departmentsResult.payload).items ?? [],
+          metrics: getPayloadData(metricsResult.payload),
+          authorities: getPayloadData(authoritiesResult.payload).items ?? [],
         },
       },
       { status: 200 }

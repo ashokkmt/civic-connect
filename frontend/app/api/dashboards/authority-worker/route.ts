@@ -5,7 +5,7 @@ const TOKEN_COOKIE = "auth_token";
 
 type BackendResult = {
   response: Response;
-  payload: any;
+  payload: Record<string, unknown>;
 };
 
 async function fetchBackend(url: string, token: string): Promise<BackendResult> {
@@ -15,10 +15,10 @@ async function fetchBackend(url: string, token: string): Promise<BackendResult> 
     cache: "no-store",
   });
 
-  const payload = await response.json().catch(() => ({
+  const payload = (await response.json().catch(() => ({
     success: false,
     error: { code: "INVALID_RESPONSE", message: "Backend returned invalid JSON" },
-  }));
+  }))) as Record<string, unknown>;
 
   return { response, payload };
 }
@@ -53,19 +53,30 @@ export async function GET(request: Request) {
       return NextResponse.json(issuesResult.payload, { status: issuesResult.response.status || 500 });
     }
 
-    const items = (issuesResult.payload?.data?.items ?? []) as Array<{ status?: string }>;
+    const data = (issuesResult.payload.data as Record<string, unknown> | undefined) ?? {};
+    const items = (data.items as Array<{ status?: string }> | undefined) ?? [];
     const stats = {
       total: items.length,
+      activeAssignedOrInProgress: items.filter((item) => item.status === "ASSIGNED" || item.status === "IN_PROGRESS").length,
+      pendingReview: items.filter(
+        (item) =>
+          item.status === "AWAITING_HEAD_CLOSURE" ||
+          item.status === "RESOLVED_PENDING_CONFIRMATION" ||
+          item.status === "RESOLVED"
+      ).length,
+      completed: items.filter((item) => item.status === "CLOSED").length,
       assigned: items.filter((item) => item.status === "ASSIGNED").length,
       inProgress: items.filter((item) => item.status === "IN_PROGRESS").length,
       resolved: items.filter((item) => item.status === "RESOLVED").length,
     };
 
+    const profileData = (profileResult.payload.data as Record<string, unknown> | undefined) ?? {};
+
     return NextResponse.json(
       {
         success: true,
         data: {
-          profile: profileResult.response.ok ? profileResult.payload?.data?.user ?? null : null,
+          profile: profileResult.response.ok ? profileData.user ?? null : null,
           issues: items,
           stats,
         },

@@ -35,6 +35,14 @@ func (s *FlagService) Create(ctx context.Context, issueID primitive.ObjectID, re
 		return nil, errx.New("NOT_FOUND", "issue not found", 404)
 	}
 
+	hasSupport, err := s.issues.HasSupporter(ctx, issueID, reporterID)
+	if err != nil {
+		return nil, errx.New("INTERNAL_ERROR", "could not verify support status", 500)
+	}
+	if hasSupport {
+		return nil, errx.New("ACTION_ALREADY_TAKEN", "you already supported this issue", 409)
+	}
+
 	now := time.Now().UTC()
 	flag := &domain.IssueFlag{
 		IssueID:    issueID,
@@ -82,4 +90,8 @@ func (s *FlagService) Resolve(ctx context.Context, flagID primitive.ObjectID, re
 		return nil, errx.New("INTERNAL_ERROR", "could not update issue flag count", 500)
 	}
 	return flag, nil
+}
+
+func (s *FlagService) ExistsByIssueAndReporter(ctx context.Context, issueID primitive.ObjectID, reporterID string) (bool, error) {
+	return s.flags.ExistsByIssueAndReporter(ctx, issueID, reporterID)
 }
