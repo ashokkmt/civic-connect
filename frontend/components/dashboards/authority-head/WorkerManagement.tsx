@@ -4,6 +4,7 @@ import { Card, CardBody } from "@/components/ui/Card";
 import { FormError } from "@/components/forms/FormError";
 import { WorkerMetricCards } from "@/components/dashboards/authority-head/WorkerMetricCards";
 import type { HeadIssue, HeadWorkerStatus, HeadWorkerSummary } from "@/components/dashboards/authority-head/types";
+import { formatIssueDisplayId } from "@/lib/issues/displayId";
 
 type WorkerManagementProps = {
   pendingIssues: HeadIssue[];
@@ -142,7 +143,7 @@ export function WorkerManagement({
                   <option value="">Select issue</option>
                   {assignableIssues.map((issue) => (
                     <option key={issue.id} value={issue.id}>
-                      {issue.id} - {issue.title}
+                      {formatIssueDisplayId(issue.id)} - {issue.title}
                     </option>
                   ))}
                 </select>

@@ -1,17 +1,25 @@
-import { Camera, CheckCircle2, Clock3, Send } from "lucide-react";
+import { CheckCircle2, Clock3, Send } from "lucide-react";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { FormError } from "@/components/forms/FormError";
+import { ImageUploader } from "@/components/upload/ImageUploader";
 import type { WorkerIssue } from "@/components/dashboards/authority-worker/types";
+import { formatIssueDisplayId } from "@/lib/issues/displayId";
 
 type SubmitResolutionProps = {
   issues: WorkerIssue[];
   selectedIssueId: string | null;
   notesByIssue: Record<string, string>;
+  resolutionImageUrlsByIssue: Record<string, string[]>;
+  resolutionUploadingByIssue: Record<string, boolean>;
+  resolutionUploadErrorByIssue: Record<string, string | null>;
   actionLoadingId: string | null;
   error: string | null;
   requestId: string | null;
   onSelectIssue: (issueId: string) => void;
   onNoteChange: (issueId: string, value: string) => void;
+  onResolutionImagesChange: (issueId: string, urls: string[]) => void;
+  onResolutionUploadingChange: (issueId: string, uploading: boolean) => void;
+  onResolutionImageError: (issueId: string, message: string | null) => void;
   onSubmit: (issueId: string) => Promise<void>;
 };
 
@@ -19,11 +27,17 @@ export function SubmitResolution({
   issues,
   selectedIssueId,
   notesByIssue,
+  resolutionImageUrlsByIssue,
+  resolutionUploadingByIssue,
+  resolutionUploadErrorByIssue,
   actionLoadingId,
   error,
   requestId,
   onSelectIssue,
   onNoteChange,
+  onResolutionImagesChange,
+  onResolutionUploadingChange,
+  onResolutionImageError,
   onSubmit,
 }: SubmitResolutionProps) {
   const selectedIssue = issues.find((issue) => issue.id === selectedIssueId) ?? null;
@@ -47,7 +61,7 @@ export function SubmitResolution({
             </div>
             <div>
               <p className="text-base font-bold text-slate-900 dark:text-slate-100">Authority Worker</p>
-              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{selectedIssue ? `Issue #${selectedIssue.id.slice(-6).toUpperCase()}` : "Issue selected"}</p>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{selectedIssue ? `Issue ${formatIssueDisplayId(selectedIssue.id)}` : "Issue selected"}</p>
             </div>
           </div>
           <span className="rounded-full bg-[#1173d4]/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#1173d4]">
@@ -56,12 +70,9 @@ export function SubmitResolution({
         </div>
       </div>
 
-      <div>
-        <h1 className="text-2xl font-extrabold leading-tight text-slate-900 dark:text-slate-100">Complete Task</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Please document the resolution for this active ticket and submit final notes.
-        </p>
-      </div>
+      <p className="text-sm text-slate-500 dark:text-slate-400">
+        Please document the resolution for this active ticket and submit final notes.
+      </p>
 
       <div className="space-y-5">
         <label className="space-y-2 text-sm">
@@ -73,7 +84,7 @@ export function SubmitResolution({
           >
             {issues.map((issue) => (
               <option key={issue.id} value={issue.id}>
-                {issue.title}
+                {`${formatIssueDisplayId(issue.id)} - ${issue.title}`}
               </option>
             ))}
           </select>
@@ -81,29 +92,29 @@ export function SubmitResolution({
 
         <div>
           <h3 className="text-sm font-bold uppercase tracking-widest text-slate-900 dark:text-slate-100">Evidence Photos</h3>
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            <button
-              type="button"
-              disabled
-              className="group relative aspect-square w-full cursor-not-allowed rounded-xl border-2 border-dashed border-slate-300 bg-slate-200 p-4 text-center transition-colors dark:border-slate-700 dark:bg-slate-800"
-            >
-              <div className="flex h-full flex-col items-center justify-center">
-                <Camera className="mb-2 h-5 w-5 text-slate-400" />
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Before Photo</p>
-                <p className="mt-1 text-[10px] italic text-slate-400 dark:text-slate-500">Required (API pending)</p>
-              </div>
-            </button>
-            <button
-              type="button"
-              disabled
-              className="group relative aspect-square w-full cursor-not-allowed rounded-xl border-2 border-dashed border-slate-300 bg-slate-200 p-4 text-center transition-colors dark:border-slate-700 dark:bg-slate-800"
-            >
-              <div className="flex h-full flex-col items-center justify-center">
-                <Camera className="mb-2 h-5 w-5 text-slate-400" />
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">After Photo</p>
-                <p className="mt-1 text-[10px] italic text-slate-400 dark:text-slate-500">Required (API pending)</p>
-              </div>
-            </button>
+          <div className="mt-4">
+            <ImageUploader
+              value={selectedIssueId ? resolutionImageUrlsByIssue[selectedIssueId] ?? [] : []}
+              onChange={(urls) => {
+                if (selectedIssueId) {
+                  onResolutionImagesChange(selectedIssueId, urls);
+                }
+              }}
+              onUploadingChange={(uploading) => {
+                if (selectedIssueId) {
+                  onResolutionUploadingChange(selectedIssueId, uploading);
+                }
+              }}
+              onError={(message) => {
+                if (selectedIssueId) {
+                  onResolutionImageError(selectedIssueId, message);
+                }
+              }}
+            />
+            {selectedIssueId && resolutionUploadErrorByIssue[selectedIssueId] ? (
+              <p className="mt-2 text-xs text-red-600 dark:text-red-300">{resolutionUploadErrorByIssue[selectedIssueId]}</p>
+            ) : null}
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Upload at least one clear proof image before submitting resolution.</p>
           </div>
         </div>
 
@@ -111,7 +122,7 @@ export function SubmitResolution({
           <div className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
             <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{target.title}</p>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{target.description}</p>
-            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Issue ID: {target.id}</p>
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">Issue ID: {formatIssueDisplayId(target.id)}</p>
           </div>
         ) : null}
 
@@ -159,11 +170,19 @@ export function SubmitResolution({
                 void onSubmit(selectedIssueId);
               }
             }}
-            disabled={!selectedIssueId || actionLoadingId === selectedIssueId}
+            disabled={
+              !selectedIssueId ||
+              actionLoadingId === selectedIssueId ||
+              (selectedIssueId ? resolutionUploadingByIssue[selectedIssueId] === true : false)
+            }
             className="flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-[#1173d4] text-lg font-bold text-white shadow-lg shadow-[#1173d4]/25 transition-transform active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Send className="h-5 w-5" />
-            {selectedIssueId && actionLoadingId === selectedIssueId ? "Submitting..." : "Submit Resolution"}
+            {selectedIssueId && resolutionUploadingByIssue[selectedIssueId]
+              ? "Uploading evidence..."
+              : selectedIssueId && actionLoadingId === selectedIssueId
+                ? "Submitting..."
+                : "Submit Resolution"}
           </button>
           <p className="mt-4 text-center text-xs text-slate-400">
             By submitting, you confirm that all information provided is accurate and the task has been completed according to safety standards.

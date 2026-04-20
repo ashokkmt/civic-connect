@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { AlertTriangle, Clock3 } from "lucide-react";
 import { Badge } from "@/components/ui/Badge";
 import { Card, CardBody } from "@/components/ui/Card";
 import { Table } from "@/components/ui/Table";
+import { IssueImageLightbox } from "@/components/issues/IssueImageLightbox";
 import type { DepartmentRow, EscalationItem } from "@/components/dashboards/admin/types";
+import { formatIssueDisplayId } from "@/lib/issues/displayId";
 
 type EscalationsViewProps = {
   escalations: EscalationItem[];
@@ -27,6 +29,7 @@ export function EscalationsView({
   onNotifyHead,
 }: EscalationsViewProps) {
   const [departmentSelections, setDepartmentSelections] = useState<Record<string, string>>({});
+  const [expandedIssueId, setExpandedIssueId] = useState<string | null>(null);
 
   const totalEscalations = escalations.length;
   const avgPendingDays =
@@ -80,67 +83,107 @@ export function EscalationsView({
         <Table variant="slate" headers={["Issue ID", "Department", "Assigned Head", "Days Pending", "Escalation Status", "Actions"]}>
           {escalations.map((item) => {
             const id = item.id ?? item.issueId ?? "UNKNOWN";
-            const level = item.escalationLevel ?? "MEDIUM";
+            const level = item.escalationLevel;
+            const normalizedLevel = typeof level === "string" ? level.toUpperCase() : "";
+            const levelLabel = typeof level === "number" ? `LEVEL ${level}` : normalizedLevel || "MEDIUM";
             return (
-              <tr key={id} className="border-b border-[var(--border)] last:border-0">
-                <td className="px-4 py-3 text-xs font-semibold text-rose-600 dark:text-rose-300">{id}</td>
-                <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">{item.departmentId ?? "Unknown"}</td>
-                <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">{item.authority?.assignedToWorkerId ?? "Not provided by API"}</td>
-                <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">
-                  <Badge tone="warning">{`${daysPending(item.createdAt)} Days`}</Badge>
-                </td>
-                <td className="px-4 py-3">
-                  <Badge tone={byEscalationSeverity(level)}>{level}</Badge>
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => onResolveEscalation(id)}
-                      className="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-emerald-500"
-                    >
-                      Mark Handled
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const departmentId = departmentSelections[id] || item.departmentId || "";
-                        if (!departmentId) {
-                          return;
-                        }
-                        onReassignDepartment(id, departmentId);
-                      }}
-                      disabled={reassignLoadingId === id || !(departmentSelections[id] || item.departmentId)}
-                      className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200"
-                    >
-                      {reassignLoadingId === id ? "Reassigning..." : "Reassign Dept"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onNotifyHead(id)}
-                      disabled={notifyLoadingId === id}
-                      className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200"
-                    >
-                      {notifyLoadingId === id ? "Notifying..." : "Notify Head"}
-                    </button>
-                    <select
-                      value={departmentSelections[id] ?? item.departmentId ?? ""}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        setDepartmentSelections((prev) => ({ ...prev, [id]: value }));
-                      }}
-                      className="rounded-md border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-1 text-[11px] text-zinc-700 dark:text-zinc-200"
-                    >
-                      <option value="">Select department</option>
-                      {departments.map((department) => (
-                        <option key={department.id} value={department.id}>
-                          {department.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </td>
-              </tr>
+              <Fragment key={id}>
+                <tr className="border-b border-[var(--border)] last:border-0">
+                  <td className="px-4 py-3 text-xs font-semibold text-rose-600 dark:text-rose-300">{formatIssueDisplayId(id)}</td>
+                  <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">{item.departmentId ?? "Unknown"}</td>
+                  <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">{item.authority?.assignedToWorkerId ?? "Not provided by API"}</td>
+                  <td className="px-4 py-3 text-sm text-zinc-700 dark:text-zinc-200">
+                    <Badge tone="warning">{`${daysPending(item.createdAt)} Days`}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge tone={byEscalationSeverity(level)}>{levelLabel}</Badge>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setExpandedIssueId((prev) => (prev === id ? null : id))}
+                        className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-700 dark:text-zinc-200"
+                      >
+                        {expandedIssueId === id ? "Hide Details" : "View Details"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onResolveEscalation(id)}
+                        className="rounded-md bg-emerald-600 px-2 py-1 text-[11px] font-semibold text-white transition hover:bg-emerald-500"
+                      >
+                        Mark Handled
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const departmentId = departmentSelections[id] || item.departmentId || "";
+                          if (!departmentId) {
+                            return;
+                          }
+                          onReassignDepartment(id, departmentId);
+                        }}
+                        disabled={reassignLoadingId === id || !(departmentSelections[id] || item.departmentId)}
+                        className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200"
+                      >
+                        {reassignLoadingId === id ? "Reassigning..." : "Reassign Dept"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onNotifyHead(id)}
+                        disabled={notifyLoadingId === id}
+                        className="rounded-md border border-[var(--border)] px-2 py-1 text-[11px] font-semibold text-zinc-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200"
+                      >
+                        {notifyLoadingId === id ? "Notifying..." : "Notify Head"}
+                      </button>
+                      <select
+                        value={departmentSelections[id] ?? item.departmentId ?? ""}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setDepartmentSelections((prev) => ({ ...prev, [id]: value }));
+                        }}
+                        className="rounded-md border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-1 text-[11px] text-zinc-700 dark:text-zinc-200"
+                      >
+                        <option value="">Select department</option>
+                        {departments.map((department) => (
+                          <option key={department.id} value={department.id}>
+                            {department.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </td>
+                </tr>
+                {expandedIssueId === id ? (
+                  <tr>
+                    <td colSpan={6} className="bg-[var(--surface-muted)] px-4 py-4">
+                      <div className="grid gap-4 rounded-lg border border-[var(--border)] bg-[var(--surface)] p-4 lg:grid-cols-[2fr_1fr]">
+                        <div className="space-y-3">
+                          <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{item.title ?? id}</h3>
+                          <p className="text-sm text-zinc-600 dark:text-zinc-300">{item.description ?? "No description provided."}</p>
+                          <div className="grid gap-2 text-xs text-zinc-600 dark:text-zinc-300 sm:grid-cols-2">
+                            <p>Status: {item.status ?? "Unknown"}</p>
+                            <p>Support Count: {item.supporterCount ?? 0}</p>
+                            <p>Issue ID: {formatIssueDisplayId(id)}</p>
+                            {item.location?.coordinates ? (
+                              <p>
+                                Location: {item.location.coordinates[1]?.toFixed(4)}, {item.location.coordinates[0]?.toFixed(4)}
+                              </p>
+                            ) : (
+                              <p>Location: Not available</p>
+                            )}
+                            <p>{item.createdAt ? `Reported: ${new Date(item.createdAt).toLocaleString()}` : "Reported: Not available"}</p>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">Issue images</p>
+                          <IssueImageLightbox imageUrls={item.imageUrls} thumbnailClassName="h-28 w-full object-cover" />
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
             );
           })}
           {escalations.length === 0 ? (
@@ -172,8 +215,8 @@ function daysPending(from?: string) {
   return Math.max(0, Math.round(diffMs / (24 * 60 * 60 * 1000))).toString();
 }
 
-function byEscalationSeverity(level?: string) {
-  const normalized = (level ?? "").toUpperCase();
+function byEscalationSeverity(level?: string | number) {
+  const normalized = typeof level === "string" ? level.toUpperCase() : "";
   if (normalized === "CRITICAL") {
     return "danger" as const;
   }

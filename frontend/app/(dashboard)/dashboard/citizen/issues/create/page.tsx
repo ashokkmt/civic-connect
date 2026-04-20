@@ -189,7 +189,7 @@ export default function CitizenCreateIssuePage() {
         <FormActions
           submitLabel="Submit issue"
           isSubmitting={submitting || isUploading}
-          secondaryAction={<Link href="/dashboard/citizen/issues">Back to issues</Link>}
+          secondaryAction={<Link href="/dashboard/citizen?view=my_issues">Back to issues</Link>}
         />
       </form>
     </section>

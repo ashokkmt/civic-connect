@@ -93,6 +93,11 @@ export function PublicNavbar() {
           <Link className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/issues">
             Issues
           </Link>
+          {isLoggedIn ? (
+            <Link className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/dashboard/citizen">
+              Dashboard
+            </Link>
+          ) : null}
           {!isLoggedIn ? (
             <>
               <Link className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/login">
@@ -151,6 +156,15 @@ export function PublicNavbar() {
             >
               Issues
             </Link>
+            {isLoggedIn ? (
+              <Link
+                className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
+                href="/dashboard/citizen"
+                onClick={() => setOpen(false)}
+              >
+                Dashboard
+              </Link>
+            ) : null}
             {!isLoggedIn ? (
               <>
                 <Link

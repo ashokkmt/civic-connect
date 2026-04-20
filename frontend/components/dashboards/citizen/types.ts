@@ -4,11 +4,13 @@ export type CitizenIssue = {
   description?: string;
   status: string;
   supporterCount?: number;
+  flagsCount?: number;
   createdAt?: string;
   departmentId?: string;
   imageUrls?: string[];
   isReporter?: boolean;
   isSupporter?: boolean;
+  isFlagged?: boolean;
 };
 
 export type IssuesResponse = {

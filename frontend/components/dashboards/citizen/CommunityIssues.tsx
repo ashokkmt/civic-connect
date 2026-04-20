@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowBigUp, MapPin } from "lucide-react";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Badge, toneFromIssueStatus } from "@/components/ui/Badge";
@@ -15,18 +15,115 @@ type CommunityIssuesProps = {
 };
 
 export function CommunityIssues({ issues, loading, error, locationReady }: CommunityIssuesProps) {
+  const [localIssues, setLocalIssues] = useState<CitizenIssue[]>(issues);
+  const [actionLoading, setActionLoading] = useState<"support" | "flag" | null>(null);
+  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLocalIssues(issues);
+  }, [issues]);
+
   const sortedIssues = useMemo(
     () =>
-      [...issues].sort(
+      [...localIssues].sort(
         (a, b) =>
           (new Date(b.createdAt ?? "").getTime() || 0) - (new Date(a.createdAt ?? "").getTime() || 0)
       ),
-    [issues]
+    [localIssues]
   );
 
   const [selectedId, setSelectedId] = useState("");
 
   const selectedIssue = sortedIssues.find((issue) => issue.id === selectedId) ?? sortedIssues[0];
+
+  const updateIssueState = (issueId: string, mutator: (item: CitizenIssue) => CitizenIssue) => {
+    setLocalIssues((prev) => prev.map((item) => (item.id === issueId ? mutator(item) : item)));
+  };
+
+  const supportIssue = async () => {
+    if (!selectedIssue || selectedIssue.isSupporter || selectedIssue.isReporter) {
+      return;
+    }
+
+    setActionLoading("support");
+    setActionMessage(null);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/citizen/issues/${selectedIssue.id}/support`, {
+        method: "POST",
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        error?: { code?: string; message?: string };
+      } | null;
+
+      if (!response.ok || !payload?.success) {
+        if (response.status === 409 || payload?.error?.code === "DUPLICATE_SUPPORT") {
+          updateIssueState(selectedIssue.id, (item) => ({ ...item, isSupporter: true }));
+          setActionMessage("You already support this issue.");
+          return;
+        }
+        setActionError(payload?.error?.message ?? "Unable to support this issue.");
+        return;
+      }
+
+      updateIssueState(selectedIssue.id, (item) => ({
+        ...item,
+        isSupporter: true,
+        supporterCount: (item.supporterCount ?? 0) + 1,
+      }));
+      setActionMessage("Support recorded.");
+    } catch {
+      setActionError("Unable to support this issue.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const flagIssue = async () => {
+    if (!selectedIssue || selectedIssue.isFlagged || selectedIssue.isReporter) {
+      return;
+    }
+
+    setActionLoading("flag");
+    setActionMessage(null);
+    setActionError(null);
+
+    try {
+      const response = await fetch(`/api/citizen/issues/${selectedIssue.id}/flag`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: "Citizen flagged this issue for review" }),
+      });
+      const payload = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        error?: { code?: string; message?: string };
+      } | null;
+
+      if (!response.ok || !payload?.success) {
+        if (response.status === 409 || payload?.error?.code === "DUPLICATE_FLAG") {
+          updateIssueState(selectedIssue.id, (item) => ({ ...item, isFlagged: true }));
+          setActionMessage("You already flagged this issue.");
+          return;
+        }
+        setActionError(payload?.error?.message ?? "Unable to flag this issue.");
+        return;
+      }
+
+      updateIssueState(selectedIssue.id, (item) => ({
+        ...item,
+        isFlagged: true,
+        flagsCount: (item.flagsCount ?? 0) + 1,
+      }));
+      setActionMessage("Issue flagged for review.");
+    } catch {
+      setActionError("Unable to flag this issue.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   if (!locationReady) {
     return (
@@ -51,7 +148,7 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
     return <EmptyState title="Unable to load community issues" description={error} />;
   }
 
-  if (issues.length === 0) {
+  if (localIssues.length === 0) {
     return <EmptyState title="No nearby issues" description="No public reports found for your saved location." />;
   }
 
@@ -59,10 +156,7 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
     <div className="grid grid-cols-1 gap-8 xl:grid-cols-[1.6fr_1fr]">
       <section className="space-y-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">Community Issues</h2>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Active reports in your neighborhood</p>
-          </div>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Active reports in your neighborhood</p>
           <div className="flex gap-2">
             <button
               type="button"
@@ -153,20 +247,32 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
               <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">{selectedIssue.supporterCount ?? 0}</p>
             </div>
 
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Flags</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900 dark:text-slate-100">{selectedIssue.flagsCount ?? 0}</p>
+            </div>
+
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
+                onClick={supportIssue}
+                disabled={Boolean(selectedIssue.isSupporter || selectedIssue.isReporter || actionLoading)}
                 className="rounded-xl bg-sky-600 py-3 text-sm font-bold text-white"
               >
-                Confirm
+                {actionLoading === "support" ? "Supporting..." : selectedIssue.isSupporter ? "Supported" : "Support Issue"}
               </button>
               <button
                 type="button"
+                onClick={flagIssue}
+                disabled={Boolean(selectedIssue.isFlagged || selectedIssue.isReporter || actionLoading)}
                 className="rounded-xl border border-slate-200 py-3 text-sm font-bold text-slate-600 dark:border-slate-700 dark:text-slate-300"
               >
-                Flag
+                {actionLoading === "flag" ? "Flagging..." : selectedIssue.isFlagged ? "Flagged" : "Flag Issue"}
               </button>
             </div>
+
+            {actionMessage ? <p className="text-xs text-emerald-700 dark:text-emerald-300">{actionMessage}</p> : null}
+            {actionError ? <p className="text-xs text-red-600 dark:text-red-300">{actionError}</p> : null}
           </div>
         </div>
       </aside>

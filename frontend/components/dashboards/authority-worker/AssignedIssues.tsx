@@ -3,7 +3,9 @@ import { CalendarDays, MapPin, RefreshCcw, ShieldAlert, Trophy } from "lucide-re
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
 import { FormError } from "@/components/forms/FormError";
+import { IssueImageLightbox } from "@/components/issues/IssueImageLightbox";
 import type { WorkerIssue } from "@/components/dashboards/authority-worker/types";
+import { formatIssueDisplayId } from "@/lib/issues/displayId";
 
 type AssignedIssuesProps = {
   issues: WorkerIssue[];
@@ -51,7 +53,7 @@ export function AssignedIssues({
     const base = issues.filter((issue) => issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS");
     if (tab === "high") {
       return base.filter((issue) => {
-        const flag = (issue.priority ?? issue.severity ?? "").toUpperCase();
+        const flag = normalizeLevel(issue.priority ?? issue.severity);
         return flag === "HIGH" || flag === "CRITICAL";
       });
     }
@@ -74,7 +76,8 @@ export function AssignedIssues({
     if (Number.isNaN(dueAt)) {
       return false;
     }
-    return (issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS") && dueAt < Date.now();
+    const nowTs = new Date().getTime();
+    return (issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS") && dueAt < nowTs;
   };
 
   if (loading) {
@@ -87,10 +90,7 @@ export function AssignedIssues({
       {requestId ? <p className="text-xs text-zinc-500 dark:text-zinc-400">Request ID: {requestId}</p> : null}
 
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-black leading-tight tracking-[-0.033em] text-slate-900 dark:text-slate-100">Assigned Issues</h1>
-          <p className="text-base text-slate-500 dark:text-slate-400">You have {visible.length} active maintenance tasks.</p>
-        </div>
+        <p className="text-base text-slate-500 dark:text-slate-400">You have {visible.length} active maintenance tasks.</p>
         <button
           type="button"
           onClick={() => void onRefresh()}
@@ -162,13 +162,13 @@ export function AssignedIssues({
                 const busy = actionLoadingId === issue.id;
                 const canStart = issue.status === "ASSIGNED";
                 const canResolve = issue.status === "IN_PROGRESS";
-                const priority = (issue.priority ?? issue.severity ?? "MEDIUM").toUpperCase();
+                const priority = normalizeLevel(issue.priority ?? issue.severity, "MEDIUM");
                 const expanded = expandedIssueId === issue.id;
 
                 return (
                   <Fragment key={issue.id}>
                     <tr className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/30">
-                      <td className="px-6 py-4 text-sm font-medium text-slate-500 dark:text-slate-400">#{issue.id.slice(-6).toUpperCase()}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-slate-500 dark:text-slate-400">{formatIssueDisplayId(issue.id)}</td>
                       <td className="px-6 py-4 text-sm">
                         <p className="font-bold text-slate-900 dark:text-slate-100">{issue.title}</p>
                         <p className="mt-1 line-clamp-2 max-w-md text-xs text-slate-500 dark:text-slate-400">{issue.description}</p>
@@ -270,24 +270,7 @@ export function AssignedIssues({
 
                               <div className="space-y-2">
                                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">Uploaded images</p>
-                                {issue.imageUrls && issue.imageUrls.length > 0 ? (
-                                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                                    {issue.imageUrls.map((url) => (
-                                      <a
-                                        key={url}
-                                        href={url}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="block overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700"
-                                      >
-                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                        <img src={url} alt="Issue" className="h-32 w-full object-cover" loading="lazy" />
-                                      </a>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <p className="text-xs text-zinc-500 dark:text-zinc-400">No uploaded images available.</p>
-                                )}
+                                  <IssueImageLightbox imageUrls={issue.imageUrls} thumbnailClassName="h-32 w-full object-cover" />
                               </div>
                             </section>
 
@@ -376,7 +359,7 @@ export function AssignedIssues({
             <p className="text-2xl font-black text-slate-900 dark:text-slate-100">
               {
                 visible.filter((issue) => {
-                  const priority = (issue.priority ?? issue.severity ?? "").toUpperCase();
+                  const priority = normalizeLevel(issue.priority ?? issue.severity);
                   return priority === "HIGH" || priority === "CRITICAL";
                 }).length
               }
@@ -406,4 +389,8 @@ export function AssignedIssues({
       </div>
     </section>
   );
+}
+
+function normalizeLevel(level: unknown, fallback = "") {
+  return typeof level === "string" ? level.toUpperCase() : fallback;
 }

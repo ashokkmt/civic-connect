@@ -15,8 +15,17 @@ export type AdminView = "overview" | "departments" | "head_registration" | "esca
 export type EscalationItem = {
   id?: string;
   issueId?: string;
+  title?: string;
+  description?: string;
+  imageUrls?: string[];
+  location?: {
+    coordinates?: [number, number];
+  };
+  supporterCount?: number;
+  flagsCount?: number;
+  createdAt?: string;
   departmentId?: string;
-  escalationLevel?: string;
+  escalationLevel?: string | number;
   escalationReason?: string;
   notifiedHeadAt?: string;
   notifiedHeadBy?: string;

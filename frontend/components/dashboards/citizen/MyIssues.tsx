@@ -1,16 +1,66 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Badge, toneFromIssueStatus } from "@/components/ui/Badge";
 import type { CitizenIssue } from "@/components/dashboards/citizen/types";
+import { formatIssueDisplayId } from "@/lib/issues/displayId";
 
 type MyIssuesProps = {
   issues: CitizenIssue[];
   loading: boolean;
   error: string | null;
   locationReady: boolean;
+  onIssueDeleted?: () => void;
 };
 
-export function MyIssues({ issues, loading, error, locationReady }: MyIssuesProps) {
+type DeleteIssueResponse = {
+  success: boolean;
+  error?: { message?: string };
+};
+
+export function MyIssues({ issues, loading, error, locationReady, onIssueDeleted }: MyIssuesProps) {
+  const [visibleIssues, setVisibleIssues] = useState<CitizenIssue[]>(issues);
+  const [deletingIssueId, setDeletingIssueId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setVisibleIssues(issues);
+  }, [issues]);
+
+  const deleteIssue = async (issue: CitizenIssue) => {
+    if (!issue.isReporter) {
+      setDeleteError("Only the issue reporter can delete this issue.");
+      return;
+    }
+
+    const confirmed = window.confirm("Delete this issue permanently? This cannot be undone.");
+    if (!confirmed) {
+      return;
+    }
+
+    setDeleteError(null);
+    setDeletingIssueId(issue.id);
+
+    try {
+      const response = await fetch(`/api/citizen/issues/${issue.id}`, { method: "DELETE" });
+      const payload = (await response.json().catch(() => ({ success: false }))) as DeleteIssueResponse;
+
+      if (!response.ok || !payload.success) {
+        setDeleteError(payload.error?.message ?? "Unable to delete issue.");
+        return;
+      }
+
+      setVisibleIssues((current) => current.filter((item) => item.id !== issue.id));
+      onIssueDeleted?.();
+    } catch {
+      setDeleteError("Unable to delete issue.");
+    } finally {
+      setDeletingIssueId(null);
+    }
+  };
+
   if (!locationReady) {
     return (
       <EmptyState
@@ -28,16 +78,18 @@ export function MyIssues({ issues, loading, error, locationReady }: MyIssuesProp
     return <EmptyState title="Unable to load issues" description={error} />;
   }
 
-  if (issues.length === 0) {
+  if (visibleIssues.length === 0) {
     return <EmptyState title="No issues found" description="You have not reported or supported any nearby issues yet." />;
   }
 
-  const inProgress = issues.filter((issue) => issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS").length;
-  const resolved = issues.filter((issue) => issue.status === "RESOLVED" || issue.status === "CLOSED").length;
-  const needsAttention = issues.filter((issue) => issue.status === "REJECTED" || issue.status === "PENDING_APPROVAL").length;
+  const inProgress = visibleIssues.filter((issue) => issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS").length;
+  const resolved = visibleIssues.filter(
+    (issue) => issue.status === "RESOLVED" || issue.status === "AWAITING_HEAD_CLOSURE" || issue.status === "CLOSED"
+  ).length;
+  const needsAttention = visibleIssues.filter((issue) => issue.status === "REJECTED" || issue.status === "PENDING_APPROVAL").length;
 
   const stats = [
-    { label: "Total Filed", value: issues.length, tone: "text-slate-900 dark:text-slate-100" },
+    { label: "Total Filed", value: visibleIssues.length, tone: "text-slate-900 dark:text-slate-100" },
     { label: "In Progress", value: inProgress, tone: "text-sky-600 dark:text-sky-400" },
     { label: "Resolved", value: resolved, tone: "text-emerald-600 dark:text-emerald-400" },
     { label: "Needs Attention", value: needsAttention, tone: "text-amber-600 dark:text-amber-400" },
@@ -45,10 +97,13 @@ export function MyIssues({ issues, loading, error, locationReady }: MyIssuesProp
 
   return (
     <div className="space-y-8">
-      <header>
-        <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">My Issues</h2>
-        <p className="mt-2 text-slate-500 dark:text-slate-400">View and track the status of your reported city concerns</p>
-      </header>
+      <p className="text-slate-500 dark:text-slate-400">View and track the status of your reported city concerns</p>
+
+      {deleteError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+          {deleteError}
+        </div>
+      ) : null}
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
@@ -77,13 +132,13 @@ export function MyIssues({ issues, loading, error, locationReady }: MyIssuesProp
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {issues.map((issue) => (
+              {visibleIssues.map((issue) => (
                 <tr
                   key={issue.id}
                   className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
                 >
                   <td className="whitespace-nowrap px-6 py-4 text-sm font-semibold text-sky-700 dark:text-sky-300">
-                    #{issue.id.slice(0, 8).toUpperCase()}
+                    {formatIssueDisplayId(issue.id)}
                   </td>
                   <td className="px-6 py-4 text-sm font-semibold text-slate-900 dark:text-slate-100">{issue.title}</td>
                   <td className="px-6 py-4 text-sm text-slate-500 dark:text-slate-400">{issue.departmentId ?? "-"}</td>
@@ -97,12 +152,25 @@ export function MyIssues({ issues, loading, error, locationReady }: MyIssuesProp
                     {issue.createdAt ? new Date(issue.createdAt).toLocaleDateString() : "-"}
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <Link
-                      href={`/dashboard/citizen/issues/${issue.id}`}
-                      className="text-sm font-bold text-sky-700 hover:text-sky-600 dark:text-sky-300"
-                    >
-                      View
-                    </Link>
+                    <div className="flex items-center justify-center gap-3">
+                      <Link
+                        href={`/dashboard/citizen/issues/${issue.id}`}
+                        className="text-sm font-bold text-sky-700 hover:text-sky-600 dark:text-sky-300"
+                      >
+                        View
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void deleteIssue(issue);
+                        }}
+                        disabled={deletingIssueId === issue.id || !issue.isReporter}
+                        title={issue.isReporter ? "Delete this issue" : "Only the original reporter can delete this issue"}
+                        className="text-sm font-semibold text-red-600 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-60 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        {deletingIssueId === issue.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -111,7 +179,7 @@ export function MyIssues({ issues, loading, error, locationReady }: MyIssuesProp
         </div>
 
         <div className="flex items-center justify-between border-t border-slate-200 bg-slate-50 px-6 py-4 dark:border-slate-800 dark:bg-slate-800/40">
-          <p className="text-sm text-slate-500 dark:text-slate-400">Showing 1 to {Math.min(issues.length, 10)} of {issues.length} results</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Showing 1 to {Math.min(visibleIssues.length, 10)} of {visibleIssues.length} results</p>
           <div className="flex items-center gap-1">
             <button
               type="button"

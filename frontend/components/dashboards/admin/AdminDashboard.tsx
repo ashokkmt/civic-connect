@@ -11,6 +11,7 @@ import { OverviewView } from "@/components/dashboards/admin/views/OverviewView";
 import { DepartmentManagementView } from "@/components/dashboards/admin/views/DepartmentManagementView";
 import { HeadRegistrationView } from "@/components/dashboards/admin/views/HeadRegistrationView";
 import { EscalationsView } from "@/components/dashboards/admin/views/EscalationsView";
+import { formatIssueDisplayId } from "@/lib/issues/displayId";
 
 type MeResponse = {
   success: boolean;
@@ -349,7 +350,7 @@ export function AdminDashboard() {
       const deptName = departmentRows.find((row) => row.id === departmentId)?.name ?? "selected department";
       setActionToast({
         key: `${Date.now()}-reassign-${issueId}`,
-        message: `Escalation ${issueId.slice(-6).toUpperCase()} reassigned to ${deptName}.`,
+        message: `Escalation ${formatIssueDisplayId(issueId)} reassigned to ${deptName}.`,
         tone: "success",
       });
       await loadAll();
@@ -388,7 +389,7 @@ export function AdminDashboard() {
 
       setActionToast({
         key: `${Date.now()}-notify-${issueId}`,
-        message: `Authority head notified for escalation ${issueId.slice(-6).toUpperCase()}.`,
+        message: `Authority head notified for escalation ${formatIssueDisplayId(issueId)}.`,
         tone: "success",
       });
       await loadAll();

@@ -3,9 +3,11 @@ import { Fragment } from "react";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
 import { FormError } from "@/components/forms/FormError";
+import { IssueImageLightbox } from "@/components/issues/IssueImageLightbox";
 import { StatusBadge } from "@/components/issues/StatusBadge";
 import { Card, CardBody } from "@/components/ui/Card";
 import type { HeadIssue, HeadWorker } from "@/components/dashboards/authority-head/types";
+import { formatIssueDisplayId } from "@/lib/issues/displayId";
 
 const SEVERITY_OPTIONS = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 
@@ -60,10 +62,6 @@ function averageIssueAgeDays(issues: HeadIssue[]) {
 
 function reporterLabel(issue: HeadIssue) {
   return issue.reporterName?.trim() || issue.reporterEmail?.trim() || issue.reporterId?.trim() || "Unknown reporter";
-}
-
-function shortIssueId(id: string) {
-  return `#${id.slice(0, 8).toUpperCase()}`;
 }
 
 function formattedDate(value?: string) {
@@ -154,7 +152,7 @@ export function PendingIssuesModeration({
                     <Fragment key={issue.id}>
                       <tr className="align-top transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/30">
                         <td className="px-6 py-4">
-                          <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">{shortIssueId(issue.id)}</p>
+                          <p className="text-sm font-semibold text-blue-700 dark:text-blue-300">{formatIssueDisplayId(issue.id)}</p>
                           <p className="mt-1 max-w-sm text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">{issue.title || "Untitled issue"}</p>
                         </td>
                         <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{reporterLabel(issue)}</td>
@@ -208,24 +206,7 @@ export function PendingIssuesModeration({
 
                                 <div className="space-y-2">
                                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">Uploaded images</p>
-                                  {issue.imageUrls && issue.imageUrls.length > 0 ? (
-                                    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                                      {issue.imageUrls.map((url) => (
-                                        <a
-                                          key={url}
-                                          href={url}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="block overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700"
-                                        >
-                                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                                          <img src={url} alt="Issue" className="h-32 w-full object-cover" loading="lazy" />
-                                        </a>
-                                      ))}
-                                    </div>
-                                  ) : (
-                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">No uploaded images available.</p>
-                                  )}
+                                  <IssueImageLightbox imageUrls={issue.imageUrls} thumbnailClassName="h-32 w-full object-cover" />
                                 </div>
                               </div>
 

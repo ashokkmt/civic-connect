@@ -1,7 +1,8 @@
 "use client";
 
 import L from "leaflet";
-import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
+import { useEffect } from "react";
+import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import type { Location } from "@/lib/location/types";
 
 const DEFAULT_CENTER: [number, number] = [20.5937, 78.9629];
@@ -67,6 +68,25 @@ function PickerEvents({ onPick }: PickerEventsProps) {
   return null;
 }
 
+type RecenterMapProps = {
+  value: Location | null;
+  zoom: number;
+};
+
+function RecenterMap({ value, zoom }: RecenterMapProps) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!value) {
+      return;
+    }
+
+    map.setView([value.lat, value.lng], zoom, { animate: true });
+  }, [map, value, zoom]);
+
+  return null;
+}
+
 type LocationMapPickerProps = {
   value: Location | null;
   onPick: (next: Location) => void;
@@ -105,8 +125,22 @@ export function LocationMapPicker({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <RecenterMap value={value} zoom={selectedZoom} />
         {interactive ? <PickerEvents onPick={onPick} /> : null}
-        {value ? <Marker position={[value.lat, value.lng]} icon={markerIcon} /> : null}
+        {value ? (
+          <Marker
+            position={[value.lat, value.lng]}
+            icon={markerIcon}
+            draggable={interactive}
+            eventHandlers={{
+              dragend(event) {
+                const marker = event.target as L.Marker;
+                const next = marker.getLatLng();
+                onPick({ lat: next.lat, lng: next.lng });
+              },
+            }}
+          />
+        ) : null}
       </MapContainer>
     </div>
   );

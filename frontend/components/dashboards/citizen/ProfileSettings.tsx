@@ -157,12 +157,9 @@
 
    return (
      <div className="mx-auto w-full max-w-5xl space-y-8">
-       <header>
-         <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">Account Settings</h1>
-         <p className="mt-2 text-slate-500 dark:text-slate-400">
-           Update your profile, notification preferences, and security settings.
-         </p>
-       </header>
+       <p className="text-slate-500 dark:text-slate-400">
+         Update your profile, notification preferences, and security settings.
+       </p>
 
        {loading ? (
          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">

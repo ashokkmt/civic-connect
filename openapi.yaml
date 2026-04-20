@@ -99,6 +99,8 @@ components:
           enum: [PENDING_APPROVAL, REJECTED, APPROVED, ASSIGNED, IN_PROGRESS, RESOLVED, AWAITING_HEAD_CLOSURE, CLOSED]
         supporterCount:
           type: integer
+        flagsCount:
+          type: integer
         departmentId:
           type: string
         isReporter:
@@ -146,8 +148,21 @@ components:
           type: string
         title:
           type: string
+        description:
+          type: string
+        imageUrls:
+          type: array
+          items:
+            type: string
+        location:
+          $ref: '#/components/schemas/GeoPoint'
         status:
           type: string
+        supporterCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
         departmentId:
           type: string
         flagsCount:
@@ -474,6 +489,21 @@ paths:
       responses:
         '200':
           description: Citizen issue detail
+    delete:
+      summary: Delete citizen issue
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Issue deleted
+        '404':
+          description: Issue not found
   /api/v1/citizen/issues/{id}/support:
     post:
       summary: Support issue
@@ -528,6 +558,33 @@ paths:
       responses:
         '201':
           description: Flag created
+        '409':
+          description: Duplicate flag
+  /api/v1/citizen/issues/{id}/flag:
+    post:
+      summary: Create issue flag (alias)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '201':
+          description: Flag created
+        '409':
+          description: Duplicate flag
   /api/v1/uploads/images:
     post:
       summary: Upload image

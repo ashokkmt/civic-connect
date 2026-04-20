@@ -31,12 +31,9 @@ export function WorkerDashboard({ issues, onNavigate }: WorkerDashboardProps) {
 
   return (
     <section className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold leading-tight text-slate-900 dark:text-slate-100">Worker Dashboard</h1>
-        <p className="text-base text-slate-500 dark:text-slate-400">
-          Overview of your current assignments and progress for {currentMonth}.
-        </p>
-      </div>
+      <p className="text-base text-slate-500 dark:text-slate-400">
+        Overview of your current assignments and progress for {currentMonth}.
+      </p>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">

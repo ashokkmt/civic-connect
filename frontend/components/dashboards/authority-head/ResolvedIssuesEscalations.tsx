@@ -3,6 +3,7 @@ import { AlertTriangle, Timer } from "lucide-react";
 import { FormError } from "@/components/forms/FormError";
 import { StatusBadge } from "@/components/issues/StatusBadge";
 import type { HeadIssue } from "@/components/dashboards/authority-head/types";
+import { formatIssueDisplayId } from "@/lib/issues/displayId";
 
 type ResolvedIssuesEscalationsProps = {
   issues: HeadIssue[];
@@ -70,7 +71,7 @@ export function ResolvedIssuesEscalations({
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {assignedLike.map((issue) => (
                   <tr key={issue.id}>
-                    <td className="px-6 py-4 text-xs font-semibold text-blue-600 dark:text-blue-300">{issue.id}</td>
+                    <td className="px-6 py-4 text-xs font-semibold text-blue-600 dark:text-blue-300">{formatIssueDisplayId(issue.id)}</td>
                     <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{issue.title || "Untitled issue"}</td>
                     <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{issue.authority?.assignedToWorkerId ?? "-"}</td>
                     <td className="px-6 py-4">
@@ -110,7 +111,7 @@ export function ResolvedIssuesEscalations({
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {resolvedLike.map((issue) => (
                   <tr key={issue.id}>
-                    <td className="px-6 py-4 text-xs font-semibold text-blue-600 dark:text-blue-300">{issue.id}</td>
+                    <td className="px-6 py-4 text-xs font-semibold text-blue-600 dark:text-blue-300">{formatIssueDisplayId(issue.id)}</td>
                     <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{issue.authority?.assignedToWorkerId ?? "-"}</td>
                     <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{dateLabel(issue.authority?.resolvedAt ?? issue.updatedAt)}</td>
                     <td className="px-6 py-4">
@@ -185,7 +186,7 @@ export function ResolvedIssuesEscalations({
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {escalations.map((issue) => (
                     <tr key={issue.id}>
-                      <td className="px-6 py-4 text-xs font-semibold text-rose-600 dark:text-rose-300">{issue.id}</td>
+                      <td className="px-6 py-4 text-xs font-semibold text-rose-600 dark:text-rose-300">{formatIssueDisplayId(issue.id)}</td>
                       <td className="px-6 py-4"><StatusBadge status={issue.status} /></td>
                       <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{issue.authority?.assignedToWorkerId ?? "-"}</td>
                       <td className="px-6 py-4">

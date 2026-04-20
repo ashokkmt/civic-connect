@@ -135,6 +135,7 @@ export function CitizenDashboard() {
           loading={citizenLoading}
           error={citizenError}
           locationReady={Boolean(locationReady)}
+          onIssueDeleted={() => setRefreshNonce((prev) => prev + 1)}
         />
       ) : null}
 

@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Camera, Info, LocateFixed, Search, SendHorizonal } from "lucide-react";
 import { FormError } from "@/components/forms/FormError";
 import { SelectField } from "@/components/forms/SelectField";
@@ -112,8 +112,8 @@ export function ReportIssue({ onSuccessNavigate, onIssueReported }: ReportIssueP
     void loadDepartments();
   }, [departmentId]);
 
-  const searchLocation = async () => {
-    const query = locationQuery.trim();
+  const searchLocation = useCallback(async (inputQuery?: string) => {
+    const query = (inputQuery ?? locationQuery).trim();
     if (!query) {
       setLocationResults([]);
       return;
@@ -137,7 +137,21 @@ export function ReportIssue({ onSuccessNavigate, onIssueReported }: ReportIssueP
     } finally {
       setSearchingLocation(false);
     }
-  };
+  }, [locationQuery]);
+
+  useEffect(() => {
+    const query = locationQuery.trim();
+    if (query.length < 3) {
+      setLocationResults([]);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      void searchLocation(query);
+    }, 260);
+
+    return () => window.clearTimeout(timer);
+  }, [locationQuery, searchLocation]);
 
   const applyManualCoordinates = () => {
     const lat = Number(latInput);
@@ -258,12 +272,9 @@ export function ReportIssue({ onSuccessNavigate, onIssueReported }: ReportIssueP
 
   return (
     <form onSubmit={submit} className="space-y-8">
-      <header>
-        <h2 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">Report New Issue</h2>
-        <p className="mt-2 text-slate-600 dark:text-slate-400">
-          Help us improve your neighborhood by reporting local infrastructure or service problems.
-        </p>
-      </header>
+      <p className="text-slate-600 dark:text-slate-400">
+        Help us improve your neighborhood by reporting local infrastructure or service problems.
+      </p>
 
       <div className="grid grid-cols-1 gap-8 xl:grid-cols-[2fr_1fr]">
         <div className="space-y-6">
@@ -362,11 +373,14 @@ export function ReportIssue({ onSuccessNavigate, onIssueReported }: ReportIssueP
                 type="text"
                 placeholder="Search for address..."
                 value={locationQuery}
-                onChange={(event) => setLocationQuery(event.target.value)}
+                onChange={(event) => {
+                  setLocationQuery(event.target.value);
+                  setError(null);
+                }}
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
-                    void searchLocation();
+                    void searchLocation(locationQuery);
                   }
                 }}
                 className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-4 text-sm text-slate-700 outline-none ring-sky-400 focus:ring-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
@@ -376,13 +390,17 @@ export function ReportIssue({ onSuccessNavigate, onIssueReported }: ReportIssueP
             <div className="mb-4 flex gap-2">
               <button
                 type="button"
-                onClick={() => void searchLocation()}
+                onClick={() => void searchLocation(locationQuery)}
                 disabled={searchingLocation}
                 className="rounded-lg bg-sky-600 px-3 py-2 text-xs font-semibold text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {searchingLocation ? "Searching..." : "Search"}
               </button>
             </div>
+
+            {locationQuery.trim().length >= 3 && searchingLocation ? (
+              <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">Searching locations...</p>
+            ) : null}
 
             {locationResults.length > 0 ? (
               <div className="mb-4 max-h-48 overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-2 dark:border-slate-700 dark:bg-slate-800/60">

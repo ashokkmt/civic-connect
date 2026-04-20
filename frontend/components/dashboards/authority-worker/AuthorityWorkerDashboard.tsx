@@ -37,6 +37,9 @@ export function AuthorityWorkerDashboard() {
 
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [notesByIssue, setNotesByIssue] = useState<Record<string, string>>({});
+  const [resolutionImageUrlsByIssue, setResolutionImageUrlsByIssue] = useState<Record<string, string[]>>({});
+  const [resolutionUploadingByIssue, setResolutionUploadingByIssue] = useState<Record<string, boolean>>({});
+  const [resolutionUploadErrorByIssue, setResolutionUploadErrorByIssue] = useState<Record<string, string | null>>({});
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
 
   const loadAssigned = useCallback(async () => {
@@ -146,6 +149,17 @@ export function AuthorityWorkerDashboard() {
       return;
     }
 
+    if (resolutionUploadingByIssue[issueId]) {
+      setError("Please wait for evidence image uploads to finish.");
+      return;
+    }
+
+    const resolutionImageUrls = resolutionImageUrlsByIssue[issueId] ?? [];
+    if (resolutionImageUrls.length === 0) {
+      setError("Upload at least one evidence image before submitting resolution.");
+      return;
+    }
+
     setActionLoadingId(issueId);
     setError(null);
 
@@ -153,7 +167,7 @@ export function AuthorityWorkerDashboard() {
       const response = await fetch(`/api/worker/assigned/${issueId}/resolve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resolutionNotes: notes }),
+        body: JSON.stringify({ resolutionNotes: notes, resolutionImageUrls }),
       });
       const payload = (await response.json()) as WorkerResponse;
       setRequestId(payload.requestId ?? null);
@@ -163,6 +177,9 @@ export function AuthorityWorkerDashboard() {
         return;
       }
 
+      setNotesByIssue((prev) => ({ ...prev, [issueId]: "" }));
+      setResolutionImageUrlsByIssue((prev) => ({ ...prev, [issueId]: [] }));
+      setResolutionUploadErrorByIssue((prev) => ({ ...prev, [issueId]: null }));
       await loadAssigned();
     } catch {
       setError("Unable to resolve issue.");
@@ -270,6 +287,9 @@ export function AuthorityWorkerDashboard() {
                     issues={inProgressIssues}
                     selectedIssueId={selectedIssueId}
                     notesByIssue={notesByIssue}
+                    resolutionImageUrlsByIssue={resolutionImageUrlsByIssue}
+                    resolutionUploadingByIssue={resolutionUploadingByIssue}
+                    resolutionUploadErrorByIssue={resolutionUploadErrorByIssue}
                     actionLoadingId={actionLoadingId}
                     error={error}
                     requestId={requestId}
@@ -278,6 +298,24 @@ export function AuthorityWorkerDashboard() {
                       setNotesByIssue((prev) => ({
                         ...prev,
                         [issueId]: value,
+                      }))
+                    }
+                    onResolutionImagesChange={(issueId, urls) =>
+                      setResolutionImageUrlsByIssue((prev) => ({
+                        ...prev,
+                        [issueId]: urls,
+                      }))
+                    }
+                    onResolutionUploadingChange={(issueId, uploading) =>
+                      setResolutionUploadingByIssue((prev) => ({
+                        ...prev,
+                        [issueId]: uploading,
+                      }))
+                    }
+                    onResolutionImageError={(issueId, message) =>
+                      setResolutionUploadErrorByIssue((prev) => ({
+                        ...prev,
+                        [issueId]: message,
                       }))
                     }
                     onSubmit={resolveIssue}
