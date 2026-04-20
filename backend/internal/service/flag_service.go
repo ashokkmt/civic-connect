@@ -44,6 +44,9 @@ func (s *FlagService) Create(ctx context.Context, issueID primitive.ObjectID, re
 		Resolved:   false,
 	}
 	if err := s.flags.Create(ctx, flag); err != nil {
+		if err == repository.ErrAlreadyExists {
+			return nil, errx.New("DUPLICATE_FLAG", "you have already flagged this issue", 409)
+		}
 		return nil, errx.New("INTERNAL_ERROR", "could not create flag", 500)
 	}
 	if err := s.issues.AdjustFlagsCount(ctx, issueID, 1, now); err != nil {

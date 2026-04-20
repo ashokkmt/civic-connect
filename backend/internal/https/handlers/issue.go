@@ -332,6 +332,32 @@ func (h IssueHandler) GetCitizen(w http.ResponseWriter, r *http.Request) {
 	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"item": toIssuePublicDTO(issue, principal.UserID)})
 }
 
+func (h IssueHandler) DeleteCitizen(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
+		return
+	}
+
+	principal, ok := middleware.GetPrincipal(r.Context())
+	if !ok {
+		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
+		return
+	}
+
+	id, err := parseIDFromPath(r.URL.Path, "/api/v1/citizen/issues/")
+	if err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	if err := h.Issues.DeleteCitizenIssue(r.Context(), id, principal.UserID); err != nil {
+		response.WriteError(w, r, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, map[string]interface{}{"deleted": true, "issueId": id.Hex()})
+}
+
 func (h IssueHandler) Support(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		response.WriteError(w, r, errx.New("METHOD_NOT_ALLOWED", "method not allowed", http.StatusMethodNotAllowed))
@@ -403,15 +429,21 @@ func (h IssueHandler) Flag(w http.ResponseWriter, r *http.Request) {
 		response.WriteError(w, r, errx.New("UNAUTHORIZED", "missing principal", http.StatusUnauthorized))
 		return
 	}
-	id, err := parseIDFromPathWithSuffix(r.URL.Path, "/api/v1/citizen/issues/", "/flags")
+	suffix := "/flags"
+	if strings.HasSuffix(r.URL.Path, "/flag") {
+		suffix = "/flag"
+	}
+	id, err := parseIDFromPathWithSuffix(r.URL.Path, "/api/v1/citizen/issues/", suffix)
 	if err != nil {
 		response.WriteError(w, r, err)
 		return
 	}
 	var req createFlagRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, r, errx.New("INVALID_INPUT", "invalid request body", http.StatusBadRequest))
-		return
+	if r.Body != nil {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+	if strings.TrimSpace(req.Reason) == "" {
+		req.Reason = "Flagged by citizen"
 	}
 	flag, err := h.Flags.Create(r.Context(), id, principal.UserID, req.Reason)
 	if err != nil {
@@ -434,6 +466,14 @@ func (h IssueHandler) CitizenIssueRoutes(w http.ResponseWriter, r *http.Request)
 		h.Flag(w, r)
 		return
 	}
+	if strings.HasSuffix(r.URL.Path, "/flag") {
+		h.Flag(w, r)
+		return
+	}
+	if r.Method == http.MethodDelete {
+		h.DeleteCitizen(w, r)
+		return
+	}
 	h.GetCitizen(w, r)
 }
 
@@ -451,6 +491,7 @@ type issuePublicDTO struct {
 	SupporterCount      int                `json:"supporterCount"`
 	DepartmentID        string             `json:"departmentId"`
 	EscalationReason    string             `json:"escalationReason,omitempty"`
+	FlagsCount          int                `json:"flagsCount"`
 	IsReporter          bool               `json:"isReporter"`
 	IsSupporter         bool               `json:"isSupporter"`
 	CreatedAt           string             `json:"createdAt"`
@@ -486,6 +527,7 @@ func toIssuePublicDTO(issue *domain.Issue, userID string) issuePublicDTO {
 		SupporterCount:      issue.SupporterCount,
 		DepartmentID:        issue.DepartmentID,
 		EscalationReason:    issue.EscalationReason,
+		FlagsCount:          issue.FlagsCount,
 		IsReporter:          isReporter,
 		IsSupporter:         isSupporter,
 		CreatedAt:           issue.CreatedAt.Format(time.RFC3339),

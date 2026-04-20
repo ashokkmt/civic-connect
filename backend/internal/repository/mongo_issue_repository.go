@@ -516,6 +516,21 @@ func (r *MongoIssueRepository) AddSupporter(ctx context.Context, id primitive.Ob
 	return res.ModifiedCount > 0, nil
 }
 
+func (r *MongoIssueRepository) DeleteByIDAndReporter(ctx context.Context, id primitive.ObjectID, reporterID string) error {
+	res, err := r.col.DeleteOne(ctx, bson.M{
+		"_id":             id,
+		"createdByUserId": reporterID,
+		"isMerged":        bson.M{"$ne": true},
+	})
+	if err != nil {
+		return err
+	}
+	if res.DeletedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func (r *MongoIssueRepository) MarkMerged(ctx context.Context, id, canonicalID primitive.ObjectID) error {
 	update := bson.M{
 		"$set": bson.M{
@@ -674,6 +689,64 @@ func (r *MongoIssueRepository) ListDeadlineOverdueActive(ctx context.Context, no
 		return nil, err
 	}
 	return out, nil
+}
+
+func (r *MongoIssueRepository) AutoTransitionResolvedToAwaitingHeadClose(ctx context.Context, resolvedBefore time.Time, transitionedAt time.Time, limit int64) (int64, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+
+	filter := bson.M{
+		"isMerged": bson.M{"$ne": true},
+		"status":   domain.StatusResolved,
+		"$or": []bson.M{
+			{"lifecycle.resolvedAt": bson.M{"$lte": resolvedBefore, "$ne": nil}},
+			{"statusUpdatedAt": bson.M{"$lte": resolvedBefore}},
+		},
+	}
+
+	cur, err := r.col.Find(ctx, filter, options.Find().SetLimit(limit).SetProjection(bson.M{"_id": 1}))
+	if err != nil {
+		return 0, err
+	}
+	defer cur.Close(ctx)
+
+	ids := make([]primitive.ObjectID, 0, limit)
+	for cur.Next(ctx) {
+		var row struct {
+			ID primitive.ObjectID `bson:"_id"`
+		}
+		if err := cur.Decode(&row); err != nil {
+			return 0, err
+		}
+		ids = append(ids, row.ID)
+	}
+	if err := cur.Err(); err != nil {
+		return 0, err
+	}
+	if len(ids) == 0 {
+		return 0, nil
+	}
+
+	res, err := r.col.UpdateMany(ctx, bson.M{
+		"_id":      bson.M{"$in": ids},
+		"status":   domain.StatusResolved,
+		"isMerged": bson.M{"$ne": true},
+	}, bson.M{
+		"$set": bson.M{
+			"status":                                 domain.StatusAwaitingHeadClose,
+			"statusUpdatedAt":                        transitionedAt,
+			"reporterConfirmation.confirmedAt":       transitionedAt,
+			"reporterConfirmation.confirmedByUserId": "SYSTEM_AUTO_FALLBACK",
+			"lifecycle.confirmedAt":                  transitionedAt,
+			"updatedAt":                              transitionedAt,
+		},
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return res.ModifiedCount, nil
 }
 
 func (r *MongoIssueRepository) UpdateEscalation(ctx context.Context, id primitive.ObjectID, violation bool, level int, stage string, escalatedAt *time.Time, updatedAt time.Time) error {

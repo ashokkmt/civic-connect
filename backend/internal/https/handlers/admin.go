@@ -485,7 +485,12 @@ func principalFromCtx(r *http.Request) (middleware.Principal, bool) {
 type adminIssueDTO struct {
 	ID               string             `json:"id"`
 	Title            string             `json:"title"`
+	Description      string             `json:"description,omitempty"`
+	ImageURLs        []string           `json:"imageUrls,omitempty"`
+	Location         domain.GeoPoint    `json:"location"`
 	Status           domain.IssueStatus `json:"status"`
+	SupporterCount   int                `json:"supporterCount"`
+	CreatedAt        *time.Time         `json:"createdAt,omitempty"`
 	DepartmentID     string             `json:"departmentId"`
 	FlagsCount       int                `json:"flagsCount"`
 	SlaViolation     bool               `json:"slaViolation"`
@@ -503,7 +508,12 @@ func toAdminIssueDTO(issue *domain.Issue) adminIssueDTO {
 	return adminIssueDTO{
 		ID:               issue.ID.Hex(),
 		Title:            issue.Title,
+		Description:      issue.Description,
+		ImageURLs:        issue.ImageURLs,
+		Location:         issue.Location,
 		Status:           issue.Status,
+		SupporterCount:   issue.SupporterCount,
+		CreatedAt:        &issue.CreatedAt,
 		DepartmentID:     issue.DepartmentID,
 		FlagsCount:       issue.FlagsCount,
 		SlaViolation:     issue.SlaViolation,

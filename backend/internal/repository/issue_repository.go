@@ -27,12 +27,14 @@ type IssueRepository interface {
 	ConfirmResolution(ctx context.Context, id primitive.ObjectID, reporterID string, confirmedAt time.Time) error
 	CloseIssue(ctx context.Context, id primitive.ObjectID, departmentID string, closedAt time.Time) error
 	AddSupporter(ctx context.Context, id primitive.ObjectID, userID string, allowedStatuses []domain.IssueStatus) (bool, error)
+	DeleteByIDAndReporter(ctx context.Context, id primitive.ObjectID, reporterID string) error
 	MarkMerged(ctx context.Context, id, canonicalID primitive.ObjectID) error
 	UpdatePriorityScore(ctx context.Context, id primitive.ObjectID, score float64, updatedAt time.Time) error
 	AdjustFlagsCount(ctx context.Context, id primitive.ObjectID, delta int, updatedAt time.Time) error
 	ListFlagged(ctx context.Context, limit int64) ([]*domain.Issue, error)
 	ListEscalated(ctx context.Context, departmentID string, limit int64) ([]*domain.Issue, error)
 	ListDeadlineOverdueActive(ctx context.Context, now time.Time, limit int64) ([]*domain.Issue, error)
+	AutoTransitionResolvedToAwaitingHeadClose(ctx context.Context, resolvedBefore time.Time, transitionedAt time.Time, limit int64) (int64, error)
 	UpdateEscalation(ctx context.Context, id primitive.ObjectID, violation bool, level int, stage string, escalatedAt *time.Time, updatedAt time.Time) error
 	ResolveEscalation(ctx context.Context, id primitive.ObjectID, updatedAt time.Time) error
 	ReassignWorker(ctx context.Context, id primitive.ObjectID, departmentID, workerID string, updatedAt time.Time) error

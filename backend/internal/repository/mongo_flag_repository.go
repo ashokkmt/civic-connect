@@ -27,6 +27,10 @@ func (r *MongoFlagRepository) EnsureIndexes(ctx context.Context) error {
 			Options: options.Index().SetName("issue_createdAt"),
 		},
 		{
+			Keys:    bson.D{{Key: "issueId", Value: 1}, {Key: "reporterId", Value: 1}},
+			Options: options.Index().SetName("issue_reporter_unique").SetUnique(true),
+		},
+		{
 			Keys:    bson.D{{Key: "resolved", Value: 1}, {Key: "createdAt", Value: -1}},
 			Options: options.Index().SetName("resolved_createdAt"),
 		},
@@ -41,12 +45,31 @@ func (r *MongoFlagRepository) Create(ctx context.Context, flag *domain.IssueFlag
 	}
 	res, err := r.col.InsertOne(ctx, flag)
 	if err != nil {
+		if mongo.IsDuplicateKeyError(err) {
+			return ErrAlreadyExists
+		}
 		return err
 	}
 	if oid, ok := res.InsertedID.(primitive.ObjectID); ok {
 		flag.ID = oid
 	}
 	return nil
+}
+
+func (r *MongoFlagRepository) ExistsByIssueAndReporter(ctx context.Context, issueID primitive.ObjectID, reporterID string) (bool, error) {
+	count, err := r.col.CountDocuments(ctx, bson.M{
+		"issueId":    issueID,
+		"reporterId": reporterID,
+	})
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+func (r *MongoFlagRepository) DeleteByIssueID(ctx context.Context, issueID primitive.ObjectID) error {
+	_, err := r.col.DeleteMany(ctx, bson.M{"issueId": issueID})
+	return err
 }
 
 func (r *MongoFlagRepository) ListOpen(ctx context.Context, limit int64) ([]*domain.IssueFlag, error) {

@@ -22,6 +22,7 @@ const (
 
 type IssueService struct {
 	issues          repository.IssueRepository
+	flags           repository.FlagRepository
 	priorityWeights priority.Weights
 }
 
@@ -67,8 +68,12 @@ type PublicIssueStats struct {
 	Resolved         int64
 }
 
-func NewIssueService(issues repository.IssueRepository, weights priority.Weights) *IssueService {
-	return &IssueService{issues: issues, priorityWeights: weights}
+func NewIssueService(issues repository.IssueRepository, weights priority.Weights, flags ...repository.FlagRepository) *IssueService {
+	var flagRepo repository.FlagRepository
+	if len(flags) > 0 {
+		flagRepo = flags[0]
+	}
+	return &IssueService{issues: issues, flags: flagRepo, priorityWeights: weights}
 }
 
 func (s *IssueService) CreateOrMergeIssue(ctx context.Context, input IssueCreateInput) (*IssueCreateResult, error) {
@@ -342,6 +347,27 @@ func (s *IssueService) ConfirmResolution(ctx context.Context, id primitive.Objec
 		return nil, errx.New("NOT_FOUND", "issue not found", 404)
 	}
 	return updated, nil
+}
+
+func (s *IssueService) DeleteCitizenIssue(ctx context.Context, id primitive.ObjectID, userID string) error {
+	if strings.TrimSpace(userID) == "" {
+		return errx.New("UNAUTHORIZED", "missing user", 401)
+	}
+
+	if s.flags != nil {
+		if err := s.flags.DeleteByIssueID(ctx, id); err != nil {
+			return errx.New("INTERNAL_ERROR", "could not cleanup issue flags", 500)
+		}
+	}
+
+	if err := s.issues.DeleteByIDAndReporter(ctx, id, userID); err != nil {
+		if err == repository.ErrNotFound {
+			return errx.New("NOT_FOUND", "issue not found", 404)
+		}
+		return errx.New("INTERNAL_ERROR", "could not delete issue", 500)
+	}
+
+	return nil
 }
 
 func activeClusteringStatuses() []domain.IssueStatus {

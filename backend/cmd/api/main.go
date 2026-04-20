@@ -93,7 +93,7 @@ func main() {
 		SlaBoost:  cfg.PrioritySlaWeight,
 	}
 
-	issueService := service.NewIssueService(issueRepo, priorityWeights)
+	issueService := service.NewIssueService(issueRepo, priorityWeights, flagRepo)
 	cloudinaryClient := cld.NewClient(cld.Config{
 		CloudName: cfg.CloudinaryCloudName,
 		APIKey:    cfg.CloudinaryAPIKey,
@@ -116,6 +116,7 @@ func main() {
 	authorityService := service.NewAuthorityService(issueRepo, priorityWeights)
 	authorityHandler := handlers.AuthorityHandler{Authority: authorityService}
 	deadlineEscalationService := service.NewDeadlineEscalationService(issueRepo, 200)
+	resolutionFallbackService := service.NewResolutionFallbackService(issueRepo, 200, 72*time.Hour)
 	userAdminService := service.NewUserAdminService(userRepo)
 	headHandler.Users = userAdminService
 	adminHandler := handlers.AdminHandler{
@@ -156,6 +157,7 @@ func main() {
 
 	backgroundCtx, cancelBackground := context.WithCancel(context.Background())
 	go deadlineEscalationService.Start(backgroundCtx, time.Duration(cfg.DeadlineEscalationCheckSec)*time.Second)
+	go resolutionFallbackService.Start(backgroundCtx, time.Duration(cfg.DeadlineEscalationCheckSec)*time.Second)
 
 	shutdown := make(chan os.Signal, 1)
 	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
