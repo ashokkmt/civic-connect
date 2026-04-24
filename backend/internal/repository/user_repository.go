@@ -12,7 +12,7 @@ type UserRepository interface {
 	ListAuthorityHeads(ctx context.Context, limit int64) ([]*domain.User, error)
 	ListWorkersByDepartment(ctx context.Context, departmentID string, includeBlocked bool, limit int64) ([]*domain.User, error)
 	Create(ctx context.Context, user *domain.User) error
-	UpdateProfile(ctx context.Context, id, name, email string) error
+	UpdateProfile(ctx context.Context, id, name, email string, location *domain.UserLocation) error
 	UpdateWorker(ctx context.Context, id, departmentID, name, email string, blocked *bool) error
 	UpdatePassword(ctx context.Context, id, passwordHash string) error
 	SetBlocked(ctx context.Context, id string, blocked bool) error

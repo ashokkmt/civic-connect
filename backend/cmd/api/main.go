@@ -93,13 +93,13 @@ func main() {
 		SlaBoost:  cfg.PrioritySlaWeight,
 	}
 
-	issueService := service.NewIssueService(issueRepo, priorityWeights, flagRepo)
 	cloudinaryClient := cld.NewClient(cld.Config{
 		CloudName: cfg.CloudinaryCloudName,
 		APIKey:    cfg.CloudinaryAPIKey,
 		APISecret: cfg.CloudinaryAPISecret,
 		Folder:    cfg.CloudinaryFolder,
 	})
+	issueService := service.NewIssueService(issueRepo, priorityWeights, flagRepo, cloudinaryClient)
 	uploadService := service.NewImageUploadService(cloudinaryClient, cfg.UploadImageMaxBytes)
 	uploadHandler := handlers.UploadHandler{Uploads: uploadService}
 	flagService := service.NewFlagService(flagRepo, issueRepo)

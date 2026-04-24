@@ -6,12 +6,14 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
 	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -116,7 +118,7 @@ func (c *Client) UploadImage(ctx context.Context, data []byte, filename, mimeTyp
 	}
 	if resp.StatusCode >= 400 {
 		if payload.Error != nil && strings.TrimSpace(payload.Error.Message) != "" {
-			return nil, fmt.Errorf(payload.Error.Message)
+			return nil, errors.New(payload.Error.Message)
 		}
 		return nil, fmt.Errorf("cloudinary upload failed with status %d", resp.StatusCode)
 	}
@@ -131,6 +133,115 @@ func (c *Client) UploadImage(ctx context.Context, data []byte, filename, mimeTyp
 		Height:    payload.Height,
 		Format:    payload.Format,
 	}, nil
+}
+
+func (c *Client) DeleteImageByURL(ctx context.Context, rawURL string) error {
+	if !c.IsConfigured() {
+		return nil
+	}
+
+	publicID, ok := publicIDFromURL(rawURL)
+	if !ok {
+		return nil
+	}
+
+	timestamp := fmt.Sprintf("%d", time.Now().Unix())
+	params := map[string]string{
+		"public_id": publicID,
+		"timestamp": timestamp,
+	}
+	signature := signParams(params, c.cfg.APISecret)
+
+	form := url.Values{}
+	form.Set("public_id", publicID)
+	form.Set("timestamp", timestamp)
+	form.Set("api_key", c.cfg.APIKey)
+	form.Set("signature", signature)
+
+	u := fmt.Sprintf("https://api.cloudinary.com/v1_1/%s/image/destroy", url.PathEscape(c.cfg.CloudName))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, strings.NewReader(form.Encode()))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var payload struct {
+		Result string `json:"result"`
+		Error  *struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return err
+	}
+	if resp.StatusCode >= 400 {
+		if payload.Error != nil && strings.TrimSpace(payload.Error.Message) != "" {
+			return errors.New(payload.Error.Message)
+		}
+		return fmt.Errorf("cloudinary delete failed with status %d", resp.StatusCode)
+	}
+
+	result := strings.ToLower(strings.TrimSpace(payload.Result))
+	if result == "ok" || result == "not found" || result == "already deleted" {
+		return nil
+	}
+	return fmt.Errorf("cloudinary delete returned unexpected result: %s", payload.Result)
+}
+
+func publicIDFromURL(rawURL string) (string, bool) {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return "", false
+	}
+	if parsed.Scheme == "" || parsed.Host == "" {
+		return "", false
+	}
+	if !strings.Contains(parsed.Host, "cloudinary.com") {
+		return "", false
+	}
+
+	segments := strings.Split(strings.Trim(parsed.Path, "/"), "/")
+	uploadIndex := -1
+	for i, segment := range segments {
+		if segment == "upload" {
+			uploadIndex = i
+			break
+		}
+	}
+	if uploadIndex == -1 || uploadIndex+1 >= len(segments) {
+		return "", false
+	}
+
+	parts := segments[uploadIndex+1:]
+	if len(parts) == 0 {
+		return "", false
+	}
+	if len(parts) > 1 && len(parts[0]) > 1 && strings.HasPrefix(parts[0], "v") {
+		if _, err := strconv.Atoi(parts[0][1:]); err == nil {
+			parts = parts[1:]
+		}
+	}
+	if len(parts) == 0 {
+		return "", false
+	}
+
+	last := parts[len(parts)-1]
+	if dot := strings.LastIndex(last, "."); dot > 0 {
+		last = last[:dot]
+	}
+	parts[len(parts)-1] = last
+
+	publicID := strings.Trim(strings.Join(parts, "/"), "/")
+	if publicID == "" {
+		return "", false
+	}
+	return publicID, true
 }
 
 func signParams(params map[string]string, apiSecret string) string {

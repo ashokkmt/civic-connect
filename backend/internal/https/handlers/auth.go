@@ -35,6 +35,10 @@ type updateProfileRequest struct {
 	Email       string `json:"email"`
 	OldPassword string `json:"oldPassword"`
 	NewPassword string `json:"newPassword"`
+	Location    *struct {
+		Lat *float64 `json:"lat"`
+		Lng *float64 `json:"lng"`
+	} `json:"location"`
 }
 
 type deleteAccountRequest struct {
@@ -157,11 +161,20 @@ func (h AuthHandler) UpdateMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var locationLat *float64
+	var locationLng *float64
+	if req.Location != nil {
+		locationLat = req.Location.Lat
+		locationLng = req.Location.Lng
+	}
+
 	updated, err := h.Auth.UpdateProfile(r.Context(), principal.UserID, service.ProfileUpdateInput{
 		Name:        req.Name,
 		Email:       req.Email,
 		OldPassword: req.OldPassword,
 		NewPassword: req.NewPassword,
+		LocationLat: locationLat,
+		LocationLng: locationLng,
 	})
 	if err != nil {
 		response.WriteError(w, r, err)

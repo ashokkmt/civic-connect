@@ -159,7 +159,7 @@ func (r *MongoUserRepository) Create(ctx context.Context, user *domain.User) err
 	return err
 }
 
-func (r *MongoUserRepository) UpdateProfile(ctx context.Context, id, name, email string) error {
+func (r *MongoUserRepository) UpdateProfile(ctx context.Context, id, name, email string, location *domain.UserLocation) error {
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return ErrNotFound
@@ -171,6 +171,12 @@ func (r *MongoUserRepository) UpdateProfile(ctx context.Context, id, name, email
 	}
 	if strings.TrimSpace(email) != "" {
 		update["email"] = normalizeEmail(email)
+	}
+	if location != nil {
+		update["location"] = bson.M{
+			"lat": location.Lat,
+			"lng": location.Lng,
+		}
 	}
 	if len(update) == 1 {
 		return nil

@@ -23,7 +23,13 @@ const (
 type IssueService struct {
 	issues          repository.IssueRepository
 	flags           repository.FlagRepository
+	imageCleaner    issueImageCleaner
 	priorityWeights priority.Weights
+}
+
+type issueImageCleaner interface {
+	IsConfigured() bool
+	DeleteImageByURL(ctx context.Context, rawURL string) error
 }
 
 type IssueCreateInput struct {
@@ -68,12 +74,13 @@ type PublicIssueStats struct {
 	Resolved         int64
 }
 
-func NewIssueService(issues repository.IssueRepository, weights priority.Weights, flags ...repository.FlagRepository) *IssueService {
-	var flagRepo repository.FlagRepository
-	if len(flags) > 0 {
-		flagRepo = flags[0]
-	}
-	return &IssueService{issues: issues, flags: flagRepo, priorityWeights: weights}
+func NewIssueService(
+	issues repository.IssueRepository,
+	weights priority.Weights,
+	flagRepo repository.FlagRepository,
+	imageCleaner issueImageCleaner,
+) *IssueService {
+	return &IssueService{issues: issues, flags: flagRepo, imageCleaner: imageCleaner, priorityWeights: weights}
 }
 
 func (s *IssueService) CreateOrMergeIssue(ctx context.Context, input IssueCreateInput) (*IssueCreateResult, error) {
@@ -379,10 +386,21 @@ func (s *IssueService) DeleteCitizenIssue(ctx context.Context, id primitive.Obje
 		return errx.New("UNAUTHORIZED", "missing user", 401)
 	}
 
+	issue, err := s.issues.GetByID(ctx, id)
+	if err != nil {
+		return errx.New("NOT_FOUND", "issue not found", 404)
+	}
+	if issue.IsMerged || issue.CreatedByUserID != userID {
+		return errx.New("NOT_FOUND", "issue not found", 404)
+	}
+
 	if s.flags != nil {
 		if err := s.flags.DeleteByIssueID(ctx, id); err != nil {
 			return errx.New("INTERNAL_ERROR", "could not cleanup issue flags", 500)
 		}
+	}
+	if err := s.cleanupIssueImages(ctx, issue); err != nil {
+		return errx.New("INTERNAL_ERROR", "could not cleanup issue images", 500)
 	}
 
 	if err := s.issues.DeleteByIDAndReporter(ctx, id, userID); err != nil {
@@ -390,6 +408,32 @@ func (s *IssueService) DeleteCitizenIssue(ctx context.Context, id primitive.Obje
 			return errx.New("NOT_FOUND", "issue not found", 404)
 		}
 		return errx.New("INTERNAL_ERROR", "could not delete issue", 500)
+	}
+
+	return nil
+}
+
+func (s *IssueService) cleanupIssueImages(ctx context.Context, issue *domain.Issue) error {
+	if s.imageCleaner == nil || !s.imageCleaner.IsConfigured() || issue == nil {
+		return nil
+	}
+
+	seen := make(map[string]struct{})
+	allImages := append([]string{}, issue.ImageURLs...)
+	allImages = append(allImages, issue.Authority.ResolutionImageURLs...)
+
+	for _, rawURL := range allImages {
+		rawURL = strings.TrimSpace(rawURL)
+		if rawURL == "" {
+			continue
+		}
+		if _, ok := seen[rawURL]; ok {
+			continue
+		}
+		seen[rawURL] = struct{}{}
+		if err := s.imageCleaner.DeleteImageByURL(ctx, rawURL); err != nil {
+			return err
+		}
 	}
 
 	return nil

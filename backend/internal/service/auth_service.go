@@ -30,6 +30,8 @@ type ProfileUpdateInput struct {
 	Email       string
 	OldPassword string
 	NewPassword string
+	LocationLat *float64
+	LocationLng *float64
 }
 
 func NewAuthService(users repository.UserRepository, jwtManager *jwt.Manager) *AuthService {
@@ -125,6 +127,18 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID string, input Pr
 
 	name := strings.TrimSpace(input.Name)
 	email := strings.TrimSpace(strings.ToLower(input.Email))
+	var location *domain.UserLocation
+	if input.LocationLat != nil || input.LocationLng != nil {
+		if input.LocationLat == nil || input.LocationLng == nil {
+			return nil, errx.New("INVALID_INPUT", "both location lat and lng are required", 400)
+		}
+		lat := *input.LocationLat
+		lng := *input.LocationLng
+		if lat < -90 || lat > 90 || lng < -180 || lng > 180 {
+			return nil, errx.New("INVALID_INPUT", "invalid location coordinates", 400)
+		}
+		location = &domain.UserLocation{Lat: lat, Lng: lng}
+	}
 
 	if email != "" && email != user.Email {
 		existing, err := s.users.GetByEmail(ctx, email)
@@ -155,8 +169,8 @@ func (s *AuthService) UpdateProfile(ctx context.Context, userID string, input Pr
 		}
 	}
 
-	if name != "" || email != "" {
-		if err := s.users.UpdateProfile(ctx, user.ID, name, email); err != nil {
+	if name != "" || email != "" || location != nil {
+		if err := s.users.UpdateProfile(ctx, user.ID, name, email, location); err != nil {
 			if errors.Is(err, repository.ErrAlreadyExists) {
 				return nil, errx.New("ALREADY_EXISTS", "email already in use", 409)
 			}
