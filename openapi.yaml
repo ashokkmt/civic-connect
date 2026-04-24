@@ -54,6 +54,14 @@ components:
             type: number
           minItems: 2
           maxItems: 2
+    UserLocation:
+      type: object
+      properties:
+        lat:
+          type: number
+        lng:
+          type: number
+      required: [lat, lng]
     User:
       type: object
       properties:
@@ -63,6 +71,8 @@ components:
           type: string
         email:
           type: string
+        location:
+          $ref: '#/components/schemas/UserLocation'
         role:
           type: string
           enum: [CITIZEN, ADMIN, AUTHORITY]
@@ -285,6 +295,8 @@ paths:
                   type: string
                 newPassword:
                   type: string
+                location:
+                  $ref: '#/components/schemas/UserLocation'
       responses:
         '200':
           description: Updated user

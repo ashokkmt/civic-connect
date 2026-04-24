@@ -14,6 +14,7 @@ import type { CitizenIssue, IssuesResponse } from "@/components/dashboards/citiz
 
 const DEFAULT_RADIUS = 2000;
 const DEFAULT_LIMIT = 30;
+const COMMUNITY_POLL_INTERVAL_MS = 15000;
 
 const VIEW_META: Record<CitizenView, { title: string; subtitle: string }> = {
   dashboard_overview: {
@@ -108,7 +109,7 @@ export function CitizenDashboard() {
     };
 
     loadCitizenIssues();
-  }, [lat, lng, locationReady, refreshNonce]);
+  }, [lat, lng, locationReady, refreshNonce, activeView]);
 
   const communityIssues = useMemo(() => citizenIssues, [citizenIssues]);
 
@@ -140,7 +141,19 @@ export function CitizenDashboard() {
     };
 
     void loadMyIssues();
-  }, [refreshNonce]);
+  }, [refreshNonce, activeView]);
+
+  useEffect(() => {
+    if (activeView !== "community_issues") {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setRefreshNonce((prev) => prev + 1);
+    }, COMMUNITY_POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [activeView]);
 
   const currentMeta = VIEW_META[activeView];
 
@@ -172,6 +185,7 @@ export function CitizenDashboard() {
           loading={citizenLoading}
           error={citizenError}
           locationReady={Boolean(locationReady)}
+          onReportIssue={() => setView("report_issue")}
         />
       ) : null}
 

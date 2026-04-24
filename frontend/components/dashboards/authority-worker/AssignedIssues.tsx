@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import { CalendarDays, MapPin, RefreshCcw, ShieldAlert, Trophy } from "lucide-react";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
@@ -6,6 +7,12 @@ import { FormError } from "@/components/forms/FormError";
 import { IssueImageLightbox } from "@/components/issues/IssueImageLightbox";
 import type { WorkerIssue } from "@/components/dashboards/authority-worker/types";
 import { formatIssueDisplayId } from "@/lib/issues/displayId";
+import type { Location } from "@/lib/location/types";
+
+const LocationMapPicker = dynamic(
+  () => import("@/components/location/LocationMapPicker").then((module) => module.LocationMapPicker),
+  { ssr: false }
+);
 
 type AssignedIssuesProps = {
   issues: WorkerIssue[];
@@ -78,6 +85,19 @@ export function AssignedIssues({
     }
     const nowTs = new Date().getTime();
     return (issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS") && dueAt < nowTs;
+  };
+
+  const locationFromIssue = (issue: WorkerIssue): Location | null => {
+    const coords = issue.location?.coordinates;
+    if (!coords || coords.length < 2) {
+      return null;
+    }
+    const lat = coords[1];
+    const lng = coords[0];
+    if (typeof lat !== "number" || typeof lng !== "number") {
+      return null;
+    }
+    return { lat, lng };
   };
 
   if (loading) {
@@ -164,6 +184,7 @@ export function AssignedIssues({
                 const canResolve = issue.status === "IN_PROGRESS";
                 const priority = normalizeLevel(issue.priority ?? issue.severity, "MEDIUM");
                 const expanded = expandedIssueId === issue.id;
+                const mapLocation = locationFromIssue(issue);
 
                 return (
                   <Fragment key={issue.id}>
@@ -181,7 +202,7 @@ export function AssignedIssues({
                       <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
                         <span className="inline-flex items-center gap-1">
                           <MapPin className="h-3.5 w-3.5" />
-                          {issue.location?.coordinates ? "Coordinates available" : "Field location"}
+                          {mapLocation ? "Map available" : "Field location"}
                         </span>
                       </td>
                       <td className="px-6 py-4">
@@ -210,13 +231,13 @@ export function AssignedIssues({
                         )}
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="inline-flex items-center gap-2">
+                        <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-2 py-1 dark:border-slate-700 dark:bg-slate-800/50">
                           <button
                             type="button"
                             onClick={() => {
                               setExpandedIssueId((prev) => (prev === issue.id ? null : issue.id));
                             }}
-                            className="inline-flex h-8 items-center justify-center rounded-md border border-slate-300 px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                            className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 px-3.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
                           >
                             {expanded ? "Hide Details" : "View Details"}
                           </button>
@@ -224,7 +245,7 @@ export function AssignedIssues({
                             type="button"
                             onClick={() => onOpenResolution(issue.id)}
                             disabled={!canResolve}
-                            className="inline-flex h-8 items-center justify-center rounded-md bg-[#1173d4] px-3 text-xs font-semibold text-white transition hover:bg-[#0f66bd] disabled:cursor-not-allowed disabled:opacity-50"
+                            className="inline-flex h-9 items-center justify-center rounded-lg bg-[#1173d4] px-3.5 text-xs font-semibold text-white transition hover:bg-[#0f66bd] disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             Submit Resolution
                           </button>
@@ -246,11 +267,21 @@ export function AssignedIssues({
                               <div className="grid gap-3 sm:grid-cols-2">
                                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/50">
                                   <p className="text-xs uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">Location</p>
-                                  <p className="mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-100">
-                                    {issue.location?.coordinates
-                                      ? `${issue.location.coordinates[1]?.toFixed(4)}, ${issue.location.coordinates[0]?.toFixed(4)}`
-                                      : "No coordinates available"}
-                                  </p>
+                                  {mapLocation ? (
+                                    <div className="mt-2 space-y-2">
+                                      <LocationMapPicker value={mapLocation} onPick={() => {}} interactive={false} mapHeightClassName="h-36" defaultZoom={14} selectedZoom={14} />
+                                      <a
+                                        href={`https://www.google.com/maps?q=${mapLocation.lat},${mapLocation.lng}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="inline-flex text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300"
+                                      >
+                                        View on map
+                                      </a>
+                                    </div>
+                                  ) : (
+                                    <p className="mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-100">No coordinates available</p>
+                                  )}
                                 </div>
                                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/50">
                                   <p className="text-xs uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">Status</p>

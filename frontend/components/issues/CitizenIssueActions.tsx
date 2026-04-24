@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { AuthActionModal } from "@/components/auth/AuthActionModal";
 
 type CitizenIssueActionsProps = {
   issueId: string;
@@ -36,6 +37,7 @@ export function CitizenIssueActions({
   const [confirmed, setConfirmed] = useState(status === "AWAITING_HEAD_CLOSURE" || status === "CLOSED");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
 
   const oneActionTaken = supported || flagged;
   const canSupport = !isReporter && !oneActionTaken;
@@ -66,6 +68,10 @@ export function CitizenIssueActions({
       const payload = (await response.json()) as ActionResponse;
 
       if (!response.ok || !payload.success) {
+        if (response.status === 401) {
+          setAuthModalOpen(true);
+          return;
+        }
         if (
           response.status === 409 &&
           (payload.error?.code === "DUPLICATE_SUPPORT" || payload.error?.code === "ACTION_ALREADY_TAKEN")
@@ -104,6 +110,10 @@ export function CitizenIssueActions({
       const payload = (await response.json()) as ActionResponse;
 
       if (!response.ok || !payload.success) {
+        if (response.status === 401) {
+          setAuthModalOpen(true);
+          return;
+        }
         if (
           response.status === 409 &&
           (payload.error?.code === "DUPLICATE_FLAG" || payload.error?.code === "ACTION_ALREADY_TAKEN")
@@ -204,6 +214,7 @@ export function CitizenIssueActions({
 
       {message ? <p className="text-xs text-emerald-700 dark:text-emerald-300">{message}</p> : null}
       {error ? <p className="text-xs text-red-600 dark:text-red-300">{error}</p> : null}
+      <AuthActionModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </div>
   );
 }

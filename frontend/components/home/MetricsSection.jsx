@@ -1,6 +1,4 @@
-const DEFAULT_ACCURACY = 96;
-
-export function MetricsSection({ stats, locationReady, loading, error }) {
+export function MetricsSection({ stats, locationReady, loading, error, detectionAccuracy }) {
   const metrics = [
     {
       label: "Pending Approvals",
@@ -19,8 +17,8 @@ export function MetricsSection({ stats, locationReady, loading, error }) {
     },
     {
       label: "Detection Accuracy",
-      value: `${DEFAULT_ACCURACY}%`,
-      helper: "Verified system accuracy",
+      value: `${detectionAccuracy}%`,
+      helper: "Resolved share in nearby dataset",
     },
   ];
 

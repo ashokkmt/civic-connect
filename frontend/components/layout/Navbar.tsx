@@ -10,6 +10,9 @@ type NavbarProps = {
   searchPlaceholder?: string;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
+  locationLabel?: string;
+  locationTooltip?: string;
+  onLocationClick?: () => void;
   profileName?: string;
   profileSubtitle?: string;
   onProfile?: () => void;
@@ -26,6 +29,9 @@ export function Navbar({
   searchPlaceholder = "Search...",
   searchValue,
   onSearchChange,
+  locationLabel,
+  locationTooltip,
+  onLocationClick,
   profileName,
   profileSubtitle,
   onProfile,
@@ -80,6 +86,17 @@ export function Navbar({
         </div>
 
         <div className="ml-3 flex items-center gap-3 md:gap-4">
+          {locationLabel ? (
+            <button
+              type="button"
+              onClick={onLocationClick}
+              title={locationTooltip}
+              className="hidden whitespace-nowrap rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] shadow-sm transition hover:shadow md:inline-flex"
+            >
+              {locationLabel}
+            </button>
+          ) : null}
+
           <label className="relative hidden w-full max-w-md sm:block">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input

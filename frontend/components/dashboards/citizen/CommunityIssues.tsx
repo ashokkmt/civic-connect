@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowBigUp, MapPin } from "lucide-react";
+import { AuthActionModal } from "@/components/auth/AuthActionModal";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { Badge, toneFromIssueStatus } from "@/components/ui/Badge";
 import type { CitizenIssue } from "@/components/dashboards/citizen/types";
@@ -12,13 +13,16 @@ type CommunityIssuesProps = {
   loading: boolean;
   error: string | null;
   locationReady: boolean;
+  onReportIssue: () => void;
 };
 
-export function CommunityIssues({ issues, loading, error, locationReady }: CommunityIssuesProps) {
+export function CommunityIssues({ issues, loading, error, locationReady, onReportIssue }: CommunityIssuesProps) {
   const [localIssues, setLocalIssues] = useState<CitizenIssue[]>(issues);
   const [actionLoading, setActionLoading] = useState<"support" | "flag" | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "APPROVED" | "ASSIGNED" | "IN_PROGRESS" | "RESOLVED">("ALL");
 
   useEffect(() => {
     setLocalIssues(issues);
@@ -33,10 +37,24 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
     [localIssues]
   );
 
+  const filteredIssues = useMemo(() => {
+    if (statusFilter === "ALL") {
+      return sortedIssues;
+    }
+    return sortedIssues.filter((issue) => issue.status === statusFilter);
+  }, [sortedIssues, statusFilter]);
+
   const [selectedId, setSelectedId] = useState("");
 
-  const selectedIssue = sortedIssues.find((issue) => issue.id === selectedId) ?? sortedIssues[0];
+  const selectedIssue = filteredIssues.find((issue) => issue.id === selectedId) ?? filteredIssues[0];
   const hasChosenAction = Boolean(selectedIssue?.isSupporter || selectedIssue?.isFlagged);
+
+  useEffect(() => {
+    if (!selectedIssue?.id) {
+      return;
+    }
+    setSelectedId(selectedIssue.id);
+  }, [selectedIssue?.id]);
 
   const updateIssueState = (issueId: string, mutator: (item: CitizenIssue) => CitizenIssue) => {
     setLocalIssues((prev) => prev.map((item) => (item.id === issueId ? mutator(item) : item)));
@@ -70,6 +88,10 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
       } | null;
 
       if (!response.ok || !payload?.success) {
+        if (response.status === 401) {
+          setAuthModalOpen(true);
+          return;
+        }
         if (
           response.status === 409 &&
           (payload?.error?.code === "DUPLICATE_SUPPORT" || payload?.error?.code === "ACTION_ALREADY_TAKEN")
@@ -117,6 +139,10 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
       } | null;
 
       if (!response.ok || !payload?.success) {
+        if (response.status === 401) {
+          setAuthModalOpen(true);
+          return;
+        }
         if (
           response.status === 409 &&
           (payload?.error?.code === "DUPLICATE_FLAG" || payload?.error?.code === "ACTION_ALREADY_TAKEN")
@@ -166,7 +192,7 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
     return <EmptyState title="Unable to load community issues" description={error} />;
   }
 
-  if (localIssues.length === 0) {
+  if (filteredIssues.length === 0) {
     return <EmptyState title="No nearby issues" description="No public reports found for your saved location." />;
   }
 
@@ -176,14 +202,21 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-slate-500 dark:text-slate-400">Active reports in your neighborhood</p>
           <div className="flex gap-2">
-            <button
-              type="button"
-              className="rounded-lg bg-slate-200 px-4 py-2 text-sm font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}
+              className="rounded-lg bg-slate-200 px-3 py-2 text-sm font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+              aria-label="Filter issues"
             >
-              Filter
-            </button>
+              <option value="ALL">All statuses</option>
+              <option value="APPROVED">Approved</option>
+              <option value="ASSIGNED">Assigned</option>
+              <option value="IN_PROGRESS">In Progress</option>
+              <option value="RESOLVED">Resolved</option>
+            </select>
             <button
               type="button"
+              onClick={onReportIssue}
               className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-bold text-white"
             >
               + Report Issue
@@ -191,7 +224,7 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
           </div>
         </div>
 
-        {sortedIssues.map((issue) => {
+        {filteredIssues.map((issue) => {
           const selected = selectedIssue?.id === issue.id;
           return (
             <button
@@ -294,6 +327,8 @@ export function CommunityIssues({ issues, loading, error, locationReady }: Commu
           </div>
         </div>
       </aside>
+
+      <AuthActionModal open={authModalOpen} onClose={() => setAuthModalOpen(false)} />
     </div>
   );
 }

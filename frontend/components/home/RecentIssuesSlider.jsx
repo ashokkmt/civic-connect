@@ -1,6 +1,23 @@
+import Link from "next/link";
+import Image from "next/image";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
 import { StatusBadge } from "@/components/issues/StatusBadge";
+
+function issueDescription(issue) {
+  const text = (issue.description || "").trim();
+  if (!text) {
+    return "No description provided.";
+  }
+  return text;
+}
+
+function issueImage(issue) {
+  if (Array.isArray(issue.imageUrls) && issue.imageUrls.length > 0) {
+    return issue.imageUrls[0];
+  }
+  return null;
+}
 
 export function RecentIssuesSlider({ issues, locationReady, loading, error }) {
   if (!locationReady) {
@@ -85,8 +102,9 @@ export function RecentIssuesSlider({ issues, locationReady, loading, error }) {
             <div className="overflow-hidden">
               <div className="flex w-max gap-4 animate-marquee hover:[animation-play-state:paused]">
                 {loopItems.map((issue, index) => (
-                  <article
+                  <Link
                     key={`${issue.id}-${index}`}
+                    href={`/issues/${issue.id}`}
                     className="min-w-[300px] rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm transition hover:-translate-y-0.5"
                   >
                     <div className="flex items-start justify-between gap-3">
@@ -95,14 +113,20 @@ export function RecentIssuesSlider({ issues, locationReady, loading, error }) {
                       </p>
                       <StatusBadge status={issue.status} />
                     </div>
-                    <div className="mt-3 flex items-center gap-3">
-                      <div className="h-12 w-16 rounded-lg bg-gradient-to-br from-sky-400/20 to-indigo-400/20 dark:from-sky-300/15 dark:to-indigo-300/15" />
-                      <div>
-                        <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                          {issue.category ? `${issue.category} Department` : "Civic Department"}
-                        </p>
-                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Near your saved area</p>
-                      </div>
+                    <p className="mt-2 line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">{issueDescription(issue)}</p>
+                    <div className="mt-3">
+                      {issueImage(issue) ? (
+                        <Image
+                          src={issueImage(issue)}
+                          alt={issue.title}
+                          width={640}
+                          height={360}
+                          unoptimized
+                          className="h-24 w-full rounded-lg object-cover"
+                        />
+                      ) : (
+                        <p className="text-xs text-zinc-500 dark:text-zinc-400">No image uploaded</p>
+                      )}
                     </div>
                     <div className="mt-4 flex items-center justify-between">
                       <span className="rounded-full border border-[var(--border)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
@@ -112,15 +136,16 @@ export function RecentIssuesSlider({ issues, locationReady, loading, error }) {
                         {issue.createdAt ? new Date(issue.createdAt).toLocaleDateString() : "Update pending"}
                       </span>
                     </div>
-                  </article>
+                  </Link>
                 ))}
               </div>
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {issues.map((issue) => (
-                <article
+                <Link
                   key={issue.id}
+                  href={`/issues/${issue.id}`}
                   className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm transition hover:-translate-y-0.5"
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -129,14 +154,20 @@ export function RecentIssuesSlider({ issues, locationReady, loading, error }) {
                     </p>
                     <StatusBadge status={issue.status} />
                   </div>
-                  <div className="mt-3 flex items-center gap-3">
-                    <div className="h-12 w-16 rounded-lg bg-gradient-to-br from-sky-400/20 to-indigo-400/20 dark:from-sky-300/15 dark:to-indigo-300/15" />
-                    <div>
-                      <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                        {issue.category ? `${issue.category} Department` : "Civic Department"}
-                      </p>
-                      <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Near your saved area</p>
-                    </div>
+                  <p className="mt-2 line-clamp-2 text-xs text-zinc-500 dark:text-zinc-400">{issueDescription(issue)}</p>
+                  <div className="mt-3">
+                    {issueImage(issue) ? (
+                      <Image
+                        src={issueImage(issue)}
+                        alt={issue.title}
+                        width={640}
+                        height={360}
+                        unoptimized
+                        className="h-24 w-full rounded-lg object-cover"
+                      />
+                    ) : (
+                      <p className="text-xs text-zinc-500 dark:text-zinc-400">No image uploaded</p>
+                    )}
                   </div>
                   <div className="mt-4 flex items-center justify-between">
                     <span className="rounded-full border border-[var(--border)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
@@ -146,7 +177,7 @@ export function RecentIssuesSlider({ issues, locationReady, loading, error }) {
                       {issue.createdAt ? new Date(issue.createdAt).toLocaleDateString() : "Update pending"}
                     </span>
                   </div>
-                </article>
+                </Link>
               ))}
             </div>
           )}

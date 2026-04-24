@@ -11,6 +11,8 @@ import { SubmitResolution } from "@/components/dashboards/authority-worker/Submi
 import { WorkerDashboard } from "@/components/dashboards/authority-worker/WorkerDashboard";
 import type { WorkerIssue, WorkerResponse, WorkerView } from "@/components/dashboards/authority-worker/types";
 
+const ASSIGNED_POLL_INTERVAL_MS = 15000;
+
 type MeResponse = {
   success: boolean;
   data?: {
@@ -70,6 +72,19 @@ export function AuthorityWorkerDashboard() {
   useEffect(() => {
     void loadAssigned();
   }, [loadAssigned]);
+
+  useEffect(() => {
+    if (activeView !== "assigned_issues") {
+      return;
+    }
+
+    void loadAssigned();
+    const timer = window.setInterval(() => {
+      void loadAssigned();
+    }, ASSIGNED_POLL_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, [activeView, loadAssigned]);
 
   useEffect(() => {
     const loadProfile = async () => {

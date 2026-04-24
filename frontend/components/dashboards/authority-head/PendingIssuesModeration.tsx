@@ -1,5 +1,6 @@
 import { CheckCircle2, Eye, XCircle } from "lucide-react";
 import { Fragment } from "react";
+import dynamic from "next/dynamic";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
 import { FormError } from "@/components/forms/FormError";
@@ -8,6 +9,12 @@ import { StatusBadge } from "@/components/issues/StatusBadge";
 import { Card, CardBody } from "@/components/ui/Card";
 import type { HeadIssue, HeadWorker } from "@/components/dashboards/authority-head/types";
 import { formatIssueDisplayId } from "@/lib/issues/displayId";
+import type { Location } from "@/lib/location/types";
+
+const LocationMapPicker = dynamic(
+  () => import("@/components/location/LocationMapPicker").then((module) => module.LocationMapPicker),
+  { ssr: false }
+);
 
 const SEVERITY_OPTIONS = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 
@@ -34,6 +41,19 @@ function locationLabel(issue: HeadIssue) {
   }
 
   return `${coords[1].toFixed(3)}, ${coords[0].toFixed(3)}`;
+}
+
+function issueLocation(issue: HeadIssue): Location | null {
+  const coords = issue.location?.coordinates;
+  if (!coords || coords.length < 2) {
+    return null;
+  }
+  const lat = coords[1];
+  const lng = coords[0];
+  if (typeof lat !== "number" || typeof lng !== "number") {
+    return null;
+  }
+  return { lat, lng };
 }
 
 function averageIssueAgeDays(issues: HeadIssue[]) {
@@ -147,6 +167,7 @@ export function PendingIssuesModeration({
                   const pendingAction = busyId === issue.id;
                   const approveState = approveForm[issue.id] ?? { severity: issue.severity ?? "", workerId: "" };
                   const expanded = selectedIssueId === issue.id;
+                  const mapLocation = issueLocation(issue);
 
                   return (
                     <Fragment key={issue.id}>
@@ -192,7 +213,21 @@ export function PendingIssuesModeration({
                                   </div>
                                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/50">
                                     <p className="text-xs uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">Location</p>
-                                    <p className="mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-100">{locationLabel(issue)}</p>
+                                    {mapLocation ? (
+                                      <div className="mt-2 space-y-2">
+                                        <LocationMapPicker value={mapLocation} onPick={() => {}} interactive={false} mapHeightClassName="h-36" defaultZoom={14} selectedZoom={14} />
+                                        <a
+                                          href={`https://www.google.com/maps?q=${mapLocation.lat},${mapLocation.lng}`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex text-xs font-semibold text-sky-700 hover:underline dark:text-sky-300"
+                                        >
+                                          View on map
+                                        </a>
+                                      </div>
+                                    ) : (
+                                      <p className="mt-1 text-sm font-medium text-zinc-800 dark:text-zinc-100">{locationLabel(issue)}</p>
+                                    )}
                                   </div>
                                   <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-800/50">
                                     <p className="text-xs uppercase tracking-[0.12em] text-zinc-500 dark:text-zinc-400">Category</p>
@@ -213,53 +248,44 @@ export function PendingIssuesModeration({
                               <aside className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
                                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">Moderation actions</p>
 
-                                <label className="space-y-1">
-                                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">Severity</span>
-                                  <select
-                                    value={approveState.severity}
-                                    onChange={(event) => onApproveFormChange(issue.id, "severity", event.target.value)}
-                                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-2 text-xs text-zinc-800 dark:text-zinc-100"
-                                  >
-                                    <option value="">Select severity</option>
-                                    {SEVERITY_OPTIONS.map((option) => (
-                                      <option key={option} value={option}>
-                                        {option}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
+                                <div className="space-y-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 dark:border-emerald-900/40 dark:bg-emerald-900/20">
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">Approval flow</p>
 
-                                <label className="space-y-1">
-                                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">Currently free worker</span>
-                                  <select
-                                    value={approveState.workerId}
-                                    onChange={(event) => onApproveFormChange(issue.id, "workerId", event.target.value)}
-                                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-2 text-xs text-zinc-800 dark:text-zinc-100"
-                                  >
-                                    <option value="">Select worker</option>
-                                    {availableWorkers.map((worker) => (
-                                      <option key={worker.id} value={worker.id}>
-                                        {(worker.name?.trim() || worker.email) + " · " + worker.id}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </label>
-                                {availableWorkers.length === 0 ? (
-                                  <p className="text-xs text-amber-600 dark:text-amber-300">No free workers available right now.</p>
-                                ) : null}
+                                  <label className="space-y-1">
+                                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">Severity</span>
+                                    <select
+                                      value={approveState.severity}
+                                      onChange={(event) => onApproveFormChange(issue.id, "severity", event.target.value)}
+                                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-2 text-xs text-zinc-800 dark:text-zinc-100"
+                                    >
+                                      <option value="">Select severity</option>
+                                      {SEVERITY_OPTIONS.map((option) => (
+                                        <option key={option} value={option}>
+                                          {option}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
 
-                                <label className="space-y-1">
-                                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">Rejection reason</span>
-                                  <textarea
-                                    value={rejectForm[issue.id] ?? ""}
-                                    onChange={(event) => onRejectFormChange(issue.id, event.target.value)}
-                                    rows={3}
-                                    placeholder="Reason required when rejecting"
-                                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-1.5 text-xs text-zinc-800 dark:text-zinc-100"
-                                  />
-                                </label>
+                                  <label className="space-y-1">
+                                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">Currently free worker</span>
+                                    <select
+                                      value={approveState.workerId}
+                                      onChange={(event) => onApproveFormChange(issue.id, "workerId", event.target.value)}
+                                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-2 text-xs text-zinc-800 dark:text-zinc-100"
+                                    >
+                                      <option value="">Select worker</option>
+                                      {availableWorkers.map((worker) => (
+                                        <option key={worker.id} value={worker.id}>
+                                          {(worker.name?.trim() || worker.email) + " · " + worker.id}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+                                  {availableWorkers.length === 0 ? (
+                                    <p className="text-xs text-amber-600 dark:text-amber-300">No free workers available right now.</p>
+                                  ) : null}
 
-                                <div className="space-y-2 pt-1">
                                   <button
                                     type="button"
                                     onClick={() => void onApprove(issue.id)}
@@ -269,6 +295,11 @@ export function PendingIssuesModeration({
                                     <CheckCircle2 className="h-3.5 w-3.5" />
                                     {pendingAction ? "Processing..." : "Approve & assign"}
                                   </button>
+                                </div>
+
+                                <div className="space-y-3 rounded-lg border border-red-200 bg-red-50/60 p-3 dark:border-red-900/40 dark:bg-red-900/20">
+                                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-red-700 dark:text-red-300">Rejection flow</p>
+
                                   <button
                                     type="button"
                                     onClick={() => void onReject(issue.id)}
@@ -278,6 +309,17 @@ export function PendingIssuesModeration({
                                     <XCircle className="h-3.5 w-3.5" />
                                     Reject issue
                                   </button>
+
+                                  <label className="space-y-1">
+                                    <span className="text-xs font-semibold uppercase tracking-[0.14em] text-zinc-500 dark:text-zinc-400">Rejection reason</span>
+                                    <textarea
+                                      value={rejectForm[issue.id] ?? ""}
+                                      onChange={(event) => onRejectFormChange(issue.id, event.target.value)}
+                                      rows={3}
+                                      placeholder="Reason required when rejecting"
+                                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-2 py-1.5 text-xs text-zinc-800 dark:text-zinc-100"
+                                    />
+                                  </label>
                                 </div>
                               </aside>
                             </div>

@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ClipboardList, Home, LayoutList, Menu, PlusCircle, Settings } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { LocationModal } from "@/components/location/LocationModal";
+import { useLocation } from "@/lib/location/context";
+import { isValidLocation } from "@/lib/location/validation";
 
 export type CitizenView =
   | "dashboard_overview"
@@ -26,6 +29,10 @@ type MeResponse = {
     user?: {
       name?: string;
       email?: string;
+      location?: {
+        lat?: number;
+        lng?: number;
+      };
     };
   };
 };
@@ -37,6 +44,12 @@ export function CitizenShell({ title, subtitle, activeView, children }: CitizenS
   const [name, setName] = useState("Citizen User");
   const [email, setEmail] = useState("resident@civicconnect.local");
   const [search, setSearch] = useState("");
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
+  const [lastSyncedLocation, setLastSyncedLocation] = useState<string | null>(null);
+  const didBootstrapProfile = useRef(false);
+  const { location, setLocation } = useLocation();
+  const initialLocation = useRef(location);
 
   const sidebarItems = useMemo(
     () => [
@@ -50,11 +63,17 @@ export function CitizenShell({ title, subtitle, activeView, children }: CitizenS
   );
 
   useEffect(() => {
+    if (didBootstrapProfile.current) {
+      return;
+    }
+    didBootstrapProfile.current = true;
+
     const loadProfile = async () => {
       try {
         const response = await fetch("/api/auth/me", { method: "GET" });
         const payload = (await response.json()) as MeResponse;
         if (!response.ok || !payload.success) {
+          setProfileLoaded(true);
           return;
         }
 
@@ -65,13 +84,71 @@ export function CitizenShell({ title, subtitle, activeView, children }: CitizenS
         if (user?.email) {
           setEmail(user.email);
         }
+
+        const profileLocation = user?.location;
+        if (
+          typeof profileLocation?.lat === "number" &&
+          typeof profileLocation?.lng === "number" &&
+          isValidLocation({ lat: profileLocation.lat, lng: profileLocation.lng })
+        ) {
+          setLocation({ lat: profileLocation.lat, lng: profileLocation.lng });
+          setLastSyncedLocation(`${profileLocation.lat.toFixed(6)},${profileLocation.lng.toFixed(6)}`);
+        } else if (!initialLocation.current) {
+          if (typeof window !== "undefined" && window.navigator.geolocation) {
+            window.navigator.geolocation.getCurrentPosition(
+              (position) => {
+                setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+              },
+              () => {
+                // Keep location unset when permission is denied.
+              },
+              { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+            );
+          }
+        }
       } catch {
         // Keep dashboard usable even if profile fetch fails.
+      } finally {
+        setProfileLoaded(true);
       }
     };
 
     void loadProfile();
-  }, []);
+  }, [setLocation]);
+
+  useEffect(() => {
+    if (!profileLoaded || !location || !isValidLocation(location)) {
+      return;
+    }
+
+    const snapshot = `${location.lat.toFixed(6)},${location.lng.toFixed(6)}`;
+    if (snapshot === lastSyncedLocation) {
+      return;
+    }
+
+    const syncLocation = async () => {
+      try {
+        const response = await fetch("/api/auth/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ location: { lat: location.lat, lng: location.lng } }),
+        });
+
+        if (response.ok) {
+          setLastSyncedLocation(snapshot);
+        }
+      } catch {
+        // Keep dashboard usable even when profile sync fails.
+      }
+    };
+
+    void syncLocation();
+  }, [location, profileLoaded, lastSyncedLocation]);
+
+  const locationLabel = location ? "Location" : "Set location";
+  const locationTooltip = location
+    ? `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`
+    : "Location is not set";
 
   const handleSelect = (viewId: CitizenView) => {
     router.push(`/dashboard/citizen?view=${viewId}`);
@@ -114,6 +191,9 @@ export function CitizenShell({ title, subtitle, activeView, children }: CitizenS
               searchPlaceholder="Search for reports or addresses..."
               searchValue={search}
               onSearchChange={setSearch}
+              locationLabel={locationLabel}
+              locationTooltip={locationTooltip}
+              onLocationClick={() => setLocationModalOpen(true)}
               profileName={name}
               profileSubtitle={email}
               onProfile={() => handleSelect("profile_settings")}
@@ -127,6 +207,8 @@ export function CitizenShell({ title, subtitle, activeView, children }: CitizenS
             <main className="flex-1 overflow-y-auto">
               <div className="space-y-2 p-4 md:p-8">{children}</div>
             </main>
+
+            <LocationModal open={locationModalOpen} onClose={() => setLocationModalOpen(false)} />
           </div>
         </div>
       </div>

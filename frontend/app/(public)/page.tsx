@@ -13,6 +13,7 @@ type IssuePublic = {
   id: string;
   title: string;
   description: string;
+  imageUrls?: string[];
   status: string;
   supporterCount?: number;
   createdAt?: string;
@@ -54,6 +55,14 @@ export default function HomePage() {
 
   const locationReady = useMemo(() => location && isValidLocation(location), [location]);
   const [stats, setStats] = useState({ total: 0, pendingApprovals: 0, inProgress: 0, resolved: 0 });
+
+  const detectionAccuracy = useMemo(() => {
+    const total = stats.total;
+    if (!total) {
+      return 0;
+    }
+    return Math.round((stats.resolved / total) * 100);
+  }, [stats]);
 
   const resolvedIssues = useMemo(
     () => issues.filter((issue) => ["RESOLVED", "CLOSED"].includes(issue.status)),
@@ -142,7 +151,7 @@ export default function HomePage() {
           description="Use your device location first, or refine it using map click and optional place search."
         />
       </div>
-      <MetricsSection stats={stats} locationReady={locationReady} loading={loading} error={error} />
+      <MetricsSection stats={stats} locationReady={locationReady} loading={loading} error={error} detectionAccuracy={detectionAccuracy} />
       <RecentIssuesSlider
         issues={recentIssues}
         locationReady={locationReady}
