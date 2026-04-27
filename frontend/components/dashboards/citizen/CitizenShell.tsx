@@ -6,6 +6,7 @@ import { ClipboardList, Home, LayoutList, Menu, PlusCircle, Settings } from "luc
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { LocationModal } from "@/components/location/LocationModal";
+import { useAuthSession } from "@/lib/auth/session-context";
 import { useLocation } from "@/lib/location/context";
 import { isValidLocation } from "@/lib/location/validation";
 
@@ -27,20 +28,6 @@ type CitizenShellProps = {
   children: React.ReactNode;
 };
 
-type MeResponse = {
-  success: boolean;
-  data?: {
-    user?: {
-      name?: string;
-      email?: string;
-      location?: {
-        lat?: number;
-        lng?: number;
-      };
-    };
-  };
-};
-
 export function CitizenShell({
   title,
   subtitle,
@@ -52,16 +39,18 @@ export function CitizenShell({
   children,
 }: CitizenShellProps) {
   const router = useRouter();
+  const { user, isLoading: sessionLoading, setCachedUser } = useAuthSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [name, setName] = useState("Citizen User");
-  const [email, setEmail] = useState("resident@civicconnect.local");
   const [locationModalOpen, setLocationModalOpen] = useState(false);
-  const [profileLoaded, setProfileLoaded] = useState(false);
   const [lastSyncedLocation, setLastSyncedLocation] = useState<string | null>(null);
   const didBootstrapProfile = useRef(false);
   const { location, setLocation } = useLocation();
   const initialLocation = useRef(location);
+
+  const profileName = user?.name ?? "Citizen User";
+  const profileEmail = user?.email ?? "resident@civicconnect.local";
+  const profileLoaded = !sessionLoading;
 
   const sidebarItems = useMemo(
     () => [
@@ -75,58 +64,36 @@ export function CitizenShell({
   );
 
   useEffect(() => {
-    if (didBootstrapProfile.current) {
+    if (didBootstrapProfile.current || sessionLoading) {
       return;
     }
     didBootstrapProfile.current = true;
 
-    const loadProfile = async () => {
-      try {
-        const response = await fetch("/api/auth/me", { method: "GET" });
-        const payload = (await response.json()) as MeResponse;
-        if (!response.ok || !payload.success) {
-          setProfileLoaded(true);
-          return;
-        }
+    const profileLocation = user?.location;
+    if (
+      typeof profileLocation?.lat === "number" &&
+      typeof profileLocation?.lng === "number" &&
+      isValidLocation({ lat: profileLocation.lat, lng: profileLocation.lng })
+    ) {
+      setLocation({ lat: profileLocation.lat, lng: profileLocation.lng });
+      setLastSyncedLocation(`${profileLocation.lat.toFixed(6)},${profileLocation.lng.toFixed(6)}`);
+      return;
+    }
 
-        const user = payload.data?.user;
-        if (user?.name) {
-          setName(user.name);
-        }
-        if (user?.email) {
-          setEmail(user.email);
-        }
-
-        const profileLocation = user?.location;
-        if (
-          typeof profileLocation?.lat === "number" &&
-          typeof profileLocation?.lng === "number" &&
-          isValidLocation({ lat: profileLocation.lat, lng: profileLocation.lng })
-        ) {
-          setLocation({ lat: profileLocation.lat, lng: profileLocation.lng });
-          setLastSyncedLocation(`${profileLocation.lat.toFixed(6)},${profileLocation.lng.toFixed(6)}`);
-        } else if (!initialLocation.current) {
-          if (typeof window !== "undefined" && window.navigator.geolocation) {
-            window.navigator.geolocation.getCurrentPosition(
-              (position) => {
-                setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
-              },
-              () => {
-                // Keep location unset when permission is denied.
-              },
-              { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-            );
-          }
-        }
-      } catch {
-        // Keep dashboard usable even if profile fetch fails.
-      } finally {
-        setProfileLoaded(true);
+    if (!initialLocation.current) {
+      if (typeof window !== "undefined" && window.navigator.geolocation) {
+        window.navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setLocation({ lat: position.coords.latitude, lng: position.coords.longitude });
+          },
+          () => {
+            // Keep location unset when permission is denied.
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+        );
       }
-    };
-
-    void loadProfile();
-  }, [setLocation]);
+    }
+  }, [sessionLoading, user?.location, user?.location?.lat, user?.location?.lng, setLocation]);
 
   useEffect(() => {
     if (!profileLoaded || !location || !isValidLocation(location)) {
@@ -148,6 +115,12 @@ export function CitizenShell({
 
         if (response.ok) {
           setLastSyncedLocation(snapshot);
+          if (user) {
+            setCachedUser({
+              ...user,
+              location: { lat: location.lat, lng: location.lng },
+            });
+          }
         }
       } catch {
         // Keep dashboard usable even when profile sync fails.
@@ -155,7 +128,7 @@ export function CitizenShell({
     };
 
     void syncLocation();
-  }, [location, profileLoaded, lastSyncedLocation]);
+  }, [location, profileLoaded, lastSyncedLocation, user, setCachedUser]);
 
   const locationLabel = location ? "Location" : "Set location";
   const locationTooltip = location
@@ -209,8 +182,8 @@ export function CitizenShell({
               onRefresh={onRefresh}
               isRefreshing={isRefreshing}
               refreshLabel="Refresh"
-              profileName={name}
-              profileSubtitle={email}
+              profileName={profileName}
+              profileSubtitle={profileEmail}
               onProfile={() => handleSelect("profile_settings")}
               onSettings={() => handleSelect("profile_settings")}
               onLogout={logout}

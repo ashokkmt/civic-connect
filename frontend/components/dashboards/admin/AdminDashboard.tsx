@@ -7,22 +7,13 @@ import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import { useAuthSession } from "@/lib/auth/session-context";
 import type { AdminView, ApiResponse, DepartmentRow, EscalationItem, HeadRow, OverviewStats } from "@/components/dashboards/admin/types";
 import { OverviewView } from "@/components/dashboards/admin/views/OverviewView";
 import { DepartmentManagementView } from "@/components/dashboards/admin/views/DepartmentManagementView";
 import { HeadRegistrationView } from "@/components/dashboards/admin/views/HeadRegistrationView";
 import { EscalationsView } from "@/components/dashboards/admin/views/EscalationsView";
 import { formatIssueDisplayId } from "@/lib/issues/displayId";
-
-type MeResponse = {
-  success: boolean;
-  data?: {
-    user?: {
-      name?: string;
-      email?: string;
-    };
-  };
-};
 
 type DepartmentApiItem = {
   id?: string;
@@ -45,13 +36,12 @@ type AuthorityApiItem = {
 
 export function AdminDashboard() {
   const router = useRouter();
+  const { user } = useAuthSession();
 
   const [activeView, setActiveView] = useState<AdminView>("overview");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 350);
-  const [name, setName] = useState("Admin User");
-  const [email, setEmail] = useState("admin@civicconnect.local");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -195,31 +185,6 @@ export function AdminDashboard() {
       pendingEscalations,
     };
   }, [departmentRows, escalations, headRows]);
-
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const response = await fetch("/api/auth/me", { method: "GET" });
-        const payload = (await response.json()) as MeResponse;
-
-        if (!response.ok || !payload.success) {
-          return;
-        }
-
-        const user = payload.data?.user;
-        if (user?.name) {
-          setName(user.name);
-        }
-        if (user?.email) {
-          setEmail(user.email);
-        }
-      } catch {
-        // Keep dashboard usable even if profile fetch fails.
-      }
-    };
-
-    void loadProfile();
-  }, []);
 
   const createDepartment = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -503,6 +468,8 @@ export function AdminDashboard() {
   };
 
   const currentView = viewMeta[activeView];
+  const profileName = user?.name ?? "Admin User";
+  const profileEmail = user?.email ?? "admin@civicconnect.local";
 
   return (
     <div className="h-screen overflow-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
@@ -535,8 +502,8 @@ export function AdminDashboard() {
               onRefresh={refresh}
               isRefreshing={loading}
               refreshLabel="Refresh"
-              profileName={name}
-              profileSubtitle={email}
+              profileName={profileName}
+              profileSubtitle={profileEmail}
               onProfile={() => setActiveView("overview")}
               onSettings={refresh}
               onLogout={logout}

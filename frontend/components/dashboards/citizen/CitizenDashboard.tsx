@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import useSWR from "swr";
 import { useLocation } from "@/lib/location/context";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { isValidLocation } from "@/lib/location/validation";
@@ -15,6 +16,51 @@ import type { CitizenIssue, IssuesResponse } from "@/components/dashboards/citiz
 
 const DEFAULT_RADIUS = 2000;
 const DEFAULT_LIMIT = 30;
+
+function parseCitizenView(view: string | null): CitizenView {
+  if (
+    view === "dashboard_overview" ||
+    view === "my_issues" ||
+    view === "community_issues" ||
+    view === "report_issue" ||
+    view === "profile_settings"
+  ) {
+    return view;
+  }
+
+  return "dashboard_overview";
+}
+
+async function fetchCitizenIssues([, lat, lng]: readonly [string, number, number]) {
+  const response = await fetch(
+    `/api/citizen/issues?lat=${lat}&lng=${lng}&radiusMeters=${DEFAULT_RADIUS}&limit=${DEFAULT_LIMIT}`,
+    {
+      method: "GET",
+      cache: "no-store",
+    }
+  );
+
+  const payload = (await response.json().catch(() => null)) as IssuesResponse | null;
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.error?.message ?? "Unable to load citizen issues");
+  }
+
+  return payload.data?.items ?? [];
+}
+
+async function fetchMyIssues([, limit]: readonly [string, number]) {
+  const response = await fetch(`/api/citizen/issues/mine?limit=${limit}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  const payload = (await response.json().catch(() => null)) as IssuesResponse | null;
+  if (!response.ok || !payload?.success) {
+    throw new Error(payload?.error?.message ?? "Unable to load your issues");
+  }
+
+  return payload.data?.items ?? [];
+}
 
 const VIEW_META: Record<CitizenView, { title: string; subtitle: string }> = {
   dashboard_overview: {
@@ -45,74 +91,59 @@ export function CitizenDashboard() {
   const { location } = useLocation();
   const lat = location?.lat;
   const lng = location?.lng;
-  const [activeView, setActiveView] = useState<CitizenView>("dashboard_overview");
-
-  const [citizenIssues, setCitizenIssues] = useState<CitizenIssue[]>([]);
-  const [citizenLoading, setCitizenLoading] = useState(false);
-  const [citizenError, setCitizenError] = useState<string | null>(null);
-  const [myIssues, setMyIssues] = useState<CitizenIssue[]>([]);
-  const [myIssuesLoading, setMyIssuesLoading] = useState(false);
-  const [myIssuesError, setMyIssuesError] = useState<string | null>(null);
-  const [refreshNonce, setRefreshNonce] = useState(0);
+  const activeView = parseCitizenView(searchParams.get("view"));
   const [search, setSearch] = useState("");
+  const previousView = useRef<CitizenView | null>(null);
 
   const debouncedSearch = useDebouncedValue(search, 350);
+  const stableLat = typeof lat === "number" ? Number(lat.toFixed(3)) : null;
+  const stableLng = typeof lng === "number" ? Number(lng.toFixed(3)) : null;
 
-  const locationReady = useMemo(() => location && isValidLocation(location), [location]);
-
-  useEffect(() => {
-    const view = searchParams.get("view");
-    if (
-      view === "dashboard_overview" ||
-      view === "my_issues" ||
-      view === "community_issues" ||
-      view === "report_issue" ||
-      view === "profile_settings"
-    ) {
-      setActiveView(view);
+  const locationReady = useMemo(() => {
+    if (typeof stableLat !== "number" || typeof stableLng !== "number") {
+      return false;
     }
-  }, [searchParams]);
+
+    return isValidLocation({ lat: stableLat, lng: stableLng });
+  }, [stableLat, stableLng]);
+
+  const citizenIssuesKey =
+    locationReady && typeof stableLat === "number" && typeof stableLng === "number"
+      ? (["citizen-issues", stableLat, stableLng] as const)
+      : null;
+
+  const {
+    data: citizenIssues = [],
+    error: citizenIssuesError,
+    isLoading: citizenLoading,
+    isValidating: citizenValidating,
+    mutate: mutateCitizenIssues,
+  } = useSWR<CitizenIssue[], Error>(citizenIssuesKey, fetchCitizenIssues, {
+    dedupingInterval: 30_000,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    shouldRetryOnError: false,
+  });
+
+  const {
+    data: myIssues = [],
+    error: myIssuesQueryError,
+    isLoading: myIssuesLoading,
+    isValidating: myIssuesValidating,
+    mutate: mutateMyIssues,
+  } = useSWR<CitizenIssue[], Error>(["citizen-my-issues", DEFAULT_LIMIT] as const, fetchMyIssues, {
+    dedupingInterval: 30_000,
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+    shouldRetryOnError: false,
+  });
+
+  const citizenError = citizenIssuesError?.message ?? null;
+  const myIssuesError = myIssuesQueryError?.message ?? null;
 
   const setView = (view: CitizenView) => {
-    setActiveView(view);
     router.replace(`/dashboard/citizen?view=${view}`);
   };
-
-  useEffect(() => {
-    if (!locationReady || typeof lat !== "number" || typeof lng !== "number") {
-      return;
-    }
-
-    const loadCitizenIssues = async () => {
-      setCitizenLoading(true);
-      setCitizenError(null);
-
-      try {
-        const response = await fetch(
-          `/api/citizen/issues?lat=${lat}&lng=${lng}&radiusMeters=${DEFAULT_RADIUS}&limit=${DEFAULT_LIMIT}`,
-          {
-            method: "GET",
-            cache: "no-store",
-          }
-        );
-        const payload = (await response.json()) as IssuesResponse;
-
-        if (!response.ok || !payload.success) {
-          setCitizenError(payload.error?.message ?? "Unable to load citizen issues");
-          setCitizenIssues([]);
-          return;
-        }
-
-        setCitizenIssues(payload.data?.items ?? []);
-      } catch {
-        setCitizenError("Unable to load citizen issues");
-      } finally {
-        setCitizenLoading(false);
-      }
-    };
-
-    loadCitizenIssues();
-  }, [lat, lng, locationReady, refreshNonce, activeView]);
 
   const searchQuery = debouncedSearch.trim().toLowerCase();
 
@@ -131,40 +162,33 @@ export function CitizenDashboard() {
   const filteredMyIssues = useMemo(() => filterIssuesBySearch(myIssues), [myIssues, filterIssuesBySearch]);
 
   useEffect(() => {
-    const loadMyIssues = async () => {
-      setMyIssuesLoading(true);
-      setMyIssuesError(null);
+    if (!previousView.current) {
+      previousView.current = activeView;
+      return;
+    }
 
-      try {
-        const response = await fetch(`/api/citizen/issues/mine?limit=${DEFAULT_LIMIT}`, {
-          method: "GET",
-          cache: "no-store",
-        });
-        const payload = (await response.json()) as IssuesResponse;
+    if (previousView.current === activeView) {
+      return;
+    }
 
-        if (!response.ok || !payload.success) {
-          setMyIssuesError(payload.error?.message ?? "Unable to load your issues");
-          setMyIssues([]);
-          return;
-        }
+    previousView.current = activeView;
 
-        setMyIssues(payload.data?.items ?? []);
-      } catch {
-        setMyIssuesError("Unable to load your issues");
-        setMyIssues([]);
-      } finally {
-        setMyIssuesLoading(false);
-      }
-    };
-
-    void loadMyIssues();
-  }, [refreshNonce, activeView]);
+    const tasks: Array<Promise<unknown>> = [mutateMyIssues()];
+    if (locationReady) {
+      tasks.push(mutateCitizenIssues());
+    }
+    void Promise.all(tasks);
+  }, [activeView, locationReady, mutateCitizenIssues, mutateMyIssues]);
 
   const currentMeta = VIEW_META[activeView];
-  const isRefreshing = citizenLoading || myIssuesLoading;
+  const isRefreshing = citizenLoading || myIssuesLoading || citizenValidating || myIssuesValidating;
 
   const refreshDashboard = async () => {
-    setRefreshNonce((prev) => prev + 1);
+    const tasks: Array<Promise<unknown>> = [mutateMyIssues()];
+    if (locationReady) {
+      tasks.push(mutateCitizenIssues());
+    }
+    await Promise.all(tasks);
   };
 
   return (
@@ -193,7 +217,9 @@ export function CitizenDashboard() {
           issues={filteredMyIssues}
           loading={myIssuesLoading}
           error={myIssuesError}
-          onIssueDeleted={() => setRefreshNonce((prev) => prev + 1)}
+          onIssueDeleted={() => {
+            void refreshDashboard();
+          }}
         />
       ) : null}
 
@@ -210,7 +236,9 @@ export function CitizenDashboard() {
       {activeView === "report_issue" ? (
         <ReportIssue
           onSuccessNavigate={(viewId) => setView(viewId)}
-          onIssueReported={() => setRefreshNonce((prev) => prev + 1)}
+          onIssueReported={() => {
+            void refreshDashboard();
+          }}
         />
       ) : null}
 

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ClipboardList, LayoutDashboard, Menu, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import { useAuthSession } from "@/lib/auth/session-context";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AssignedIssues } from "@/components/dashboards/authority-worker/AssignedIssues";
@@ -12,26 +13,15 @@ import { SubmitResolution } from "@/components/dashboards/authority-worker/Submi
 import { WorkerDashboard } from "@/components/dashboards/authority-worker/WorkerDashboard";
 import type { WorkerIssue, WorkerResponse, WorkerView } from "@/components/dashboards/authority-worker/types";
 
-type MeResponse = {
-  success: boolean;
-  data?: {
-    user?: {
-      name?: string;
-      email?: string;
-    };
-  };
-};
-
 export function AuthorityWorkerDashboard() {
   const router = useRouter();
+  const { user } = useAuthSession();
 
   const [activeView, setActiveView] = useState<WorkerView>("overview");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [search, setSearch] = useState("");
   const debouncedSearch = useDebouncedValue(search, 350);
-  const [name, setName] = useState("Authority Worker");
-  const [email, setEmail] = useState("worker@civicconnect.local");
 
   const [issues, setIssues] = useState<WorkerIssue[]>([]);
   const [loading, setLoading] = useState(false);
@@ -72,30 +62,6 @@ export function AuthorityWorkerDashboard() {
   useEffect(() => {
     void loadAssigned();
   }, [activeView, loadAssigned]);
-
-  useEffect(() => {
-    const loadProfile = async () => {
-      try {
-        const response = await fetch("/api/auth/me", { method: "GET" });
-        const payload = (await response.json()) as MeResponse;
-        if (!response.ok || !payload.success) {
-          return;
-        }
-
-        const user = payload.data?.user;
-        if (user?.name) {
-          setName(user.name);
-        }
-        if (user?.email) {
-          setEmail(user.email);
-        }
-      } catch {
-        // Keep dashboard usable even if profile fetch fails.
-      }
-    };
-
-    void loadProfile();
-  }, []);
 
   const searchQuery = debouncedSearch.trim().toLowerCase();
 
@@ -252,6 +218,9 @@ export function AuthorityWorkerDashboard() {
           ? "Document completed work and submit final notes."
           : "Review resolved issues and submitted evidence.";
 
+    const profileName = user?.name ?? "Authority Worker";
+    const profileEmail = user?.email ?? "worker@civicconnect.local";
+
   return (
     <div className="h-screen overflow-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="flex h-screen overflow-hidden">
@@ -283,8 +252,8 @@ export function AuthorityWorkerDashboard() {
               onRefresh={refreshDashboard}
               isRefreshing={loading}
               refreshLabel="Refresh"
-              profileName={name}
-              profileSubtitle={email}
+              profileName={profileName}
+              profileSubtitle={profileEmail}
               onProfile={() => setActiveView("overview")}
               onSettings={() => setError("Worker settings view is not available yet.")}
               onLogout={logout}

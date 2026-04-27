@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import { LocationProvider } from "@/lib/location/context";
+import { AuthSessionProvider } from "@/lib/auth/session-context";
 import { ThemeProvider } from "@/components/theme/ThemeProvider";
 import "./globals.css";
 import { PublicNavbar } from "@/components/layout/PublicNavbar";
@@ -33,9 +34,11 @@ export default function RootLayout({
       >
         <LocationProvider>
           <ThemeProvider>
-            <PublicNavbar />
-            {children}
-            <Footer />
+            <AuthSessionProvider>
+              <PublicNavbar />
+              {children}
+              <Footer />
+            </AuthSessionProvider>
           </ThemeProvider>
         </LocationProvider>
       </body>

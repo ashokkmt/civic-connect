@@ -5,16 +5,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
+import { useAuthSession } from "@/lib/auth/session-context";
 import { useLocation } from "@/lib/location/context";
-
-type MeResponse = {
-  success: boolean;
-  data?: { user?: { email?: string } };
-};
 
 export function PublicNavbar() {
   const pathname = usePathname();
   const { location } = useLocation();
+  const { isAuthenticated, setCachedUser } = useAuthSession();
   const [open, setOpen] = React.useState(false);
   const mounted = React.useSyncExternalStore(
     () => () => {},
@@ -22,26 +19,8 @@ export function PublicNavbar() {
     () => false
   );
   const [isScrolled, setIsScrolled] = React.useState(false);
-  const [isLoggedIn, setIsLoggedIn] = React.useState(false);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
   const router = useRouter();
-
-  React.useEffect(() => {
-    const load = async () => {
-      try {
-        const response = await fetch("/api/auth/me", {
-          method: "GET",
-          cache: "no-store",
-        });
-        const payload = (await response.json()) as MeResponse;
-        setIsLoggedIn(response.ok && payload.success);
-      } catch {
-        setIsLoggedIn(false);
-      }
-    };
-
-    void load();
-  }, [pathname]);
 
   React.useEffect(() => {
     const onScroll = () => {
@@ -57,7 +36,7 @@ export function PublicNavbar() {
     setIsLoggingOut(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
-      setIsLoggedIn(false);
+      setCachedUser(null);
       router.replace("/");
       router.refresh();
     } finally {
@@ -100,12 +79,12 @@ export function PublicNavbar() {
           <Link className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/issues">
             Issues
           </Link>
-          {isLoggedIn ? (
+          {isAuthenticated ? (
             <Link className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/dashboard/citizen">
               Dashboard
             </Link>
           ) : null}
-          {!isLoggedIn ? (
+          {!isAuthenticated ? (
             <>
               <Link className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white" href="/login">
                 Login
@@ -131,7 +110,7 @@ export function PublicNavbar() {
             <span className="text-base">☰</span>
           </button>
           <ThemeToggle />
-          {isLoggedIn ? (
+          {isAuthenticated ? (
             <button
               type="button"
               onClick={handleLogout}
@@ -161,7 +140,7 @@ export function PublicNavbar() {
             >
               Issues
             </Link>
-            {isLoggedIn ? (
+            {isAuthenticated ? (
               <Link
                 className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
                 href="/dashboard/citizen"
@@ -170,7 +149,7 @@ export function PublicNavbar() {
                 Dashboard
               </Link>
             ) : null}
-            {!isLoggedIn ? (
+            {!isAuthenticated ? (
               <>
                 <Link
                   className="text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"

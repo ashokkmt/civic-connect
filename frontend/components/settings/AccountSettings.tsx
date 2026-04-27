@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { FormActions } from "@/components/forms/FormActions";
 import { FormError } from "@/components/forms/FormError";
 import { TextField } from "@/components/forms/TextField";
+import { useAuthSession } from "@/lib/auth/session-context";
 
 type AccountSettingsProps = {
   roleLabel: string;
@@ -18,6 +19,7 @@ type MeResponse = {
 
 export function AccountSettings({ roleLabel }: AccountSettingsProps) {
   const router = useRouter();
+  const { user, isLoading: sessionLoading, setCachedUser } = useAuthSession();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [oldPassword, setOldPassword] = useState("");
@@ -32,29 +34,21 @@ export function AccountSettings({ roleLabel }: AccountSettingsProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const load = async () => {
-      setIsLoading(true);
-      setError(null);
+    if (sessionLoading) {
+      return;
+    }
 
-      try {
-        const response = await fetch("/api/auth/me", { method: "GET" });
-        const payload = (await response.json()) as MeResponse;
-        if (!response.ok || !payload.success) {
-          setError(payload.error?.message ?? "Unable to load profile");
-          return;
-        }
+    setIsLoading(false);
 
-        setName(payload.data?.user?.name ?? "");
-        setEmail(payload.data?.user?.email ?? "");
-      } catch {
-        setError("Unable to load profile");
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    if (!user) {
+      setError("Unable to load profile");
+      return;
+    }
 
-    load();
-  }, []);
+    setError(null);
+    setName(user.name ?? "");
+    setEmail(user.email ?? "");
+  }, [sessionLoading, user?.name, user?.email, user]);
 
   const handleSave = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -92,6 +86,13 @@ export function AccountSettings({ roleLabel }: AccountSettingsProps) {
       }
 
       setSuccess("Profile updated successfully.");
+      if (user) {
+        setCachedUser({
+          ...user,
+          name: name.trim() || user.name,
+          email: email.trim() || user.email,
+        });
+      }
       setIsEditing(false);
       setOldPassword("");
       setNewPassword("");

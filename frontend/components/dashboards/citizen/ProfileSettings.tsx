@@ -4,15 +4,10 @@
  import { useEffect, useState } from "react";
  import { Bell, Mail, ShieldCheck, Smartphone } from "lucide-react";
  import { FormError } from "@/components/forms/FormError";
+ import { useAuthSession } from "@/lib/auth/session-context";
 
  type MeResponse = {
-   success: boolean;
-   data?: {
-     user?: {
-       name?: string;
-       email?: string;
-     };
-   };
+   success?: boolean;
    error?: {
      message?: string;
    };
@@ -43,6 +38,7 @@
 
  export function ProfileSettings() {
    const router = useRouter();
+   const { user, isLoading: sessionLoading, setCachedUser } = useAuthSession();
    const [name, setName] = useState("");
    const [email, setEmail] = useState("");
    const [currentPassword, setCurrentPassword] = useState("");
@@ -59,29 +55,21 @@
    const [success, setSuccess] = useState<string | null>(null);
 
    useEffect(() => {
-     const load = async () => {
-       setLoading(true);
-       setError(null);
+     if (sessionLoading) {
+       return;
+     }
 
-       try {
-         const response = await fetch("/api/auth/me", { method: "GET" });
-         const payload = (await response.json()) as MeResponse;
-         if (!response.ok || !payload.success) {
-           setError(payload.error?.message ?? "Unable to load profile");
-           return;
-         }
+     setLoading(false);
 
-         setName(payload.data?.user?.name ?? "");
-         setEmail(payload.data?.user?.email ?? "");
-       } catch {
-         setError("Unable to load profile");
-       } finally {
-         setLoading(false);
-       }
-     };
+     if (!user) {
+       setError("Unable to load profile");
+       return;
+     }
 
-     load();
-   }, []);
+     setError(null);
+     setName(user.name ?? "");
+     setEmail(user.email ?? "");
+   }, [sessionLoading, user?.name, user?.email, user]);
 
    const save = async () => {
      setError(null);
@@ -112,6 +100,13 @@
        }
 
        setSuccess("Profile settings saved.");
+       if (user) {
+         setCachedUser({
+           ...user,
+           name: name.trim() || user.name,
+           email: email.trim() || user.email,
+         });
+       }
        setCurrentPassword("");
        setNewPassword("");
        setConfirmPassword("");
