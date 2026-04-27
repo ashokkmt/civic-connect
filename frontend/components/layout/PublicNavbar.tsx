@@ -16,6 +16,11 @@ export function PublicNavbar() {
   const pathname = usePathname();
   const { location } = useLocation();
   const [open, setOpen] = React.useState(false);
+  const mounted = React.useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
   const [isScrolled, setIsScrolled] = React.useState(false);
   const [isLoggedIn, setIsLoggedIn] = React.useState(false);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
@@ -65,13 +70,15 @@ export function PublicNavbar() {
   }
 
   const headerClassName = [
-    "sticky top-0 z-40 border-b border-[var(--border)] transition-all duration-300",
+    "sticky top-0 z-[80] border-b border-[var(--border)] transition-all duration-300",
     isScrolled
       ? "bg-[var(--background)]/85 backdrop-blur-xl"
       : "bg-[var(--surface)] dark:bg-[var(--home-surface)]",
   ]
     .filter(Boolean)
     .join(" ");
+
+  const locationLabel = mounted && location ? `${location.lat.toFixed(3)}, ${location.lng.toFixed(3)}` : "Not set";
 
   return (
     <header className={headerClassName}>
@@ -113,9 +120,7 @@ export function PublicNavbar() {
         <div className="flex items-center gap-3">
           <div className="hidden items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-1 text-xs text-zinc-600 dark:text-zinc-300 sm:flex">
             <span className="font-semibold">Loc</span>
-            <span>
-              {location ? `${location.lat.toFixed(3)}, ${location.lng.toFixed(3)}` : "Not set"}
-            </span>
+            <span>{locationLabel}</span>
           </div>
           <button
             type="button"

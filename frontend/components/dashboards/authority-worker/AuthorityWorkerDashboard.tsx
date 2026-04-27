@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ClipboardList, LayoutDashboard, Menu, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { AssignedIssues } from "@/components/dashboards/authority-worker/AssignedIssues";
@@ -10,8 +11,6 @@ import { MyWork } from "@/components/dashboards/authority-worker/MyWork";
 import { SubmitResolution } from "@/components/dashboards/authority-worker/SubmitResolution";
 import { WorkerDashboard } from "@/components/dashboards/authority-worker/WorkerDashboard";
 import type { WorkerIssue, WorkerResponse, WorkerView } from "@/components/dashboards/authority-worker/types";
-
-const ASSIGNED_POLL_INTERVAL_MS = 15000;
 
 type MeResponse = {
   success: boolean;
@@ -30,6 +29,7 @@ export function AuthorityWorkerDashboard() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 350);
   const [name, setName] = useState("Authority Worker");
   const [email, setEmail] = useState("worker@civicconnect.local");
 
@@ -50,7 +50,7 @@ export function AuthorityWorkerDashboard() {
     setError(null);
 
     try {
-      const response = await fetch("/api/worker/assigned?limit=100", { method: "GET" });
+      const response = await fetch("/api/worker/assigned?limit=100", { method: "GET", cache: "no-store" });
       const payload = (await response.json()) as WorkerResponse;
       setRequestId(payload.requestId ?? null);
 
@@ -71,19 +71,6 @@ export function AuthorityWorkerDashboard() {
 
   useEffect(() => {
     void loadAssigned();
-  }, [loadAssigned]);
-
-  useEffect(() => {
-    if (activeView !== "assigned_issues") {
-      return;
-    }
-
-    void loadAssigned();
-    const timer = window.setInterval(() => {
-      void loadAssigned();
-    }, ASSIGNED_POLL_INTERVAL_MS);
-
-    return () => window.clearInterval(timer);
   }, [activeView, loadAssigned]);
 
   useEffect(() => {
@@ -110,9 +97,22 @@ export function AuthorityWorkerDashboard() {
     void loadProfile();
   }, []);
 
+  const searchQuery = debouncedSearch.trim().toLowerCase();
+
+  const filteredIssues = useMemo(() => {
+    if (!searchQuery) {
+      return issues;
+    }
+
+    return issues.filter((issue) => {
+      const haystack = `${issue.id} ${issue.title} ${issue.description} ${issue.status} ${issue.category ?? ""} ${issue.priority ?? ""}`.toLowerCase();
+      return haystack.includes(searchQuery);
+    });
+  }, [issues, searchQuery]);
+
   const inProgressIssues = useMemo(
-    () => issues.filter((issue) => issue.status === "IN_PROGRESS"),
-    [issues]
+    () => filteredIssues.filter((issue) => issue.status === "IN_PROGRESS"),
+    [filteredIssues]
   );
 
   useEffect(() => {
@@ -204,8 +204,8 @@ export function AuthorityWorkerDashboard() {
     }
   };
 
-  const totalAssigned = issues.filter((issue) => issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS").length;
-  const totalCompleted = issues.filter(
+  const totalAssigned = filteredIssues.filter((issue) => issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS").length;
+  const totalCompleted = filteredIssues.filter(
     (issue) => issue.status === "RESOLVED" || issue.status === "AWAITING_HEAD_CLOSURE" || issue.status === "CLOSED"
   ).length;
 
@@ -228,6 +228,10 @@ export function AuthorityWorkerDashboard() {
     } finally {
       setIsLoggingOut(false);
     }
+  };
+
+  const refreshDashboard = async () => {
+    await loadAssigned();
   };
 
   const currentTitle =
@@ -276,6 +280,9 @@ export function AuthorityWorkerDashboard() {
               searchPlaceholder="Search tasks..."
               searchValue={search}
               onSearchChange={setSearch}
+              onRefresh={refreshDashboard}
+              isRefreshing={loading}
+              refreshLabel="Refresh"
               profileName={name}
               profileSubtitle={email}
               onProfile={() => setActiveView("overview")}
@@ -288,11 +295,11 @@ export function AuthorityWorkerDashboard() {
 
             <main className="h-[calc(100vh-4rem)] overflow-y-auto p-4 sm:p-6 lg:p-8">
               <div className="mx-auto w-full max-w-6xl space-y-6">
-                {activeView === "overview" ? <WorkerDashboard issues={issues} onNavigate={setActiveView} /> : null}
+                {activeView === "overview" ? <WorkerDashboard issues={filteredIssues} onNavigate={setActiveView} /> : null}
 
                 {activeView === "assigned_issues" ? (
                   <AssignedIssues
-                    issues={issues}
+                    issues={filteredIssues}
                     loading={loading}
                     error={error}
                     requestId={requestId}
@@ -347,7 +354,7 @@ export function AuthorityWorkerDashboard() {
                 ) : null}
 
                 {activeView === "my_work" ? (
-                  <MyWork issues={issues} loading={loading} error={error} />
+                  <MyWork issues={filteredIssues} loading={loading} error={error} />
                 ) : null}
               </div>
             </main>

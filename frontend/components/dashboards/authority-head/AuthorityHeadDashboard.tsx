@@ -19,6 +19,7 @@ import { WorkerAnalytics } from "@/components/dashboards/authority-head/WorkerAn
 import { WorkerManagement } from "@/components/dashboards/authority-head/WorkerManagement";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type {
   HeadApiResponse,
   HeadIssue,
@@ -31,6 +32,24 @@ import type {
 function workerNameFromId(workerId: string) {
   const suffix = workerId.slice(-4).toUpperCase();
   return `Worker ${suffix}`;
+}
+
+function matchesIssueSearch(issue: HeadIssue, query: string) {
+  if (!query) {
+    return true;
+  }
+
+  const haystack = `${issue.id} ${issue.title} ${issue.description} ${issue.status} ${issue.category ?? ""} ${issue.departmentId ?? ""} ${issue.reporterName ?? ""} ${issue.reporterEmail ?? ""} ${issue.authority?.assignedToWorkerId ?? ""}`.toLowerCase();
+  return haystack.includes(query);
+}
+
+function matchesWorkerSearch(worker: HeadWorkerSummary, query: string) {
+  if (!query) {
+    return true;
+  }
+
+  const haystack = `${worker.workerId} ${worker.workerName} ${worker.email} ${worker.status}`.toLowerCase();
+  return haystack.includes(query);
 }
 
 function buildWorkerMetrics(issues: HeadIssue[]): HeadWorkerMetric[] {
@@ -108,6 +127,7 @@ export function AuthorityHeadDashboard() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const debouncedSearch = useDebouncedValue(search, 350);
 
   const [pendingIssues, setPendingIssues] = useState<HeadIssue[]>([]);
   const [departmentIssues, setDepartmentIssues] = useState<HeadIssue[]>([]);
@@ -131,16 +151,18 @@ export function AuthorityHeadDashboard() {
   const [createWorkerError, setCreateWorkerError] = useState<string | null>(null);
   const [createWorkerSuccess, setCreateWorkerSuccess] = useState<string | null>(null);
 
+  const searchQuery = debouncedSearch.trim().toLowerCase();
+
   const loadAll = useCallback(async () => {
     setLoading(true);
     setError(null);
 
     try {
       const [pendingRes, issuesRes, escalationsRes, workersRes] = await Promise.all([
-        fetch("/api/head/pending?limit=100", { method: "GET" }),
-        fetch("/api/head/issues?limit=200", { method: "GET" }),
-        fetch("/api/head/escalations?limit=100", { method: "GET" }),
-        fetch("/api/head/workers?limit=200&includeBlocked=true", { method: "GET" }),
+        fetch("/api/head/pending?limit=100", { method: "GET", cache: "no-store" }),
+        fetch("/api/head/issues?limit=200", { method: "GET", cache: "no-store" }),
+        fetch("/api/head/escalations?limit=100", { method: "GET", cache: "no-store" }),
+        fetch("/api/head/workers?limit=200&includeBlocked=true", { method: "GET", cache: "no-store" }),
       ]);
 
       const pendingPayload = (await pendingRes.json()) as HeadApiResponse;
@@ -176,7 +198,7 @@ export function AuthorityHeadDashboard() {
 
   useEffect(() => {
     void loadAll();
-  }, [loadAll]);
+  }, [activeView, loadAll]);
 
   const approveIssue = async (issueId: string) => {
     const values = approveForm[issueId] ?? { severity: "", workerId: "" };
@@ -270,31 +292,6 @@ export function AuthorityHeadDashboard() {
       setCreateWorkerError("Unable to create worker.");
     } finally {
       setCreateWorkerLoading(false);
-    }
-  };
-
-  const quickAssignApprove = async (issueId: string, workerId: string, severity: string) => {
-    setBusyId(issueId);
-    setError(null);
-    try {
-      const response = await fetch(`/api/head/issues/${issueId}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workerId, severity }),
-      });
-      const payload = (await response.json()) as HeadApiResponse;
-      setRequestId(payload.requestId ?? null);
-
-      if (!response.ok || !payload.success) {
-        setError(payload.error?.message ?? "Unable to approve and assign issue.");
-        return;
-      }
-
-      await loadAll();
-    } catch {
-      setError("Unable to approve and assign issue.");
-    } finally {
-      setBusyId(null);
     }
   };
 
@@ -416,8 +413,29 @@ export function AuthorityHeadDashboard() {
     await loadAll();
   };
 
-  const workerMetrics = useMemo(() => buildWorkerMetrics(departmentIssues), [departmentIssues]);
   const workerSummaries = useMemo(() => buildWorkerSummaries(departmentIssues, workers), [departmentIssues, workers]);
+
+  const filteredPendingIssues = useMemo(
+    () => pendingIssues.filter((issue) => matchesIssueSearch(issue, searchQuery)),
+    [pendingIssues, searchQuery]
+  );
+  const filteredDepartmentIssues = useMemo(
+    () => departmentIssues.filter((issue) => matchesIssueSearch(issue, searchQuery)),
+    [departmentIssues, searchQuery]
+  );
+  const filteredEscalations = useMemo(
+    () => escalations.filter((issue) => matchesIssueSearch(issue, searchQuery)),
+    [escalations, searchQuery]
+  );
+  const filteredWorkerSummaries = useMemo(
+    () => workerSummaries.filter((worker) => matchesWorkerSearch(worker, searchQuery)),
+    [workerSummaries, searchQuery]
+  );
+  const filteredWorkerMetrics = useMemo(
+    () => buildWorkerMetrics(filteredDepartmentIssues),
+    [filteredDepartmentIssues]
+  );
+
   const availableWorkers = useMemo(() => {
     const busyWorkerIds = new Set(
       departmentIssues
@@ -441,7 +459,12 @@ export function AuthorityHeadDashboard() {
       },
       { id: "worker_analytics", label: "Worker Analytics", icon: BarChart3 },
       { id: "worker_management", label: "Worker Management", icon: Users2 },
-      { id: "resolved_issues", label: "Resolved Issues", icon: CheckCheck },
+      {
+        id: "resolved_issues",
+        label: "Resolved Issues",
+        icon: CheckCheck,
+        badge: `${departmentIssues.filter((issue) => issue.status === "AWAITING_HEAD_CLOSURE").length}`,
+      },
       { id: "escalations", label: "Escalations", icon: AlertTriangle, badge: `${escalations.length}` },
     ],
     [departmentIssues, escalations.length, pendingIssues.length]
@@ -494,13 +517,20 @@ export function AuthorityHeadDashboard() {
     }
   };
 
+  const refreshDashboard = async () => {
+    await loadAll();
+  };
+
   return (
     <div className="h-screen overflow-hidden bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="flex h-full">
         <Sidebar
           items={navItems}
           activeView={activeView}
-          onSelect={(viewId) => setActiveView(viewId as HeadView)}
+          onSelect={(viewId) => {
+            setActiveView(viewId as HeadView);
+            setMobileOpen(false);
+          }}
           mobileOpen={mobileOpen}
           onOpenMobile={() => setMobileOpen(true)}
           onCloseMobile={() => setMobileOpen(false)}
@@ -518,6 +548,9 @@ export function AuthorityHeadDashboard() {
             searchPlaceholder="Search issues, workers..."
             searchValue={search}
             onSearchChange={setSearch}
+            onRefresh={refreshDashboard}
+            isRefreshing={loading}
+            refreshLabel="Refresh"
             profileName="Authority Head"
             profileSubtitle="Department Portal"
             onProfile={() => setActiveView("dashboard")}
@@ -538,12 +571,12 @@ export function AuthorityHeadDashboard() {
               {requestId ? <p className="text-xs text-zinc-500 dark:text-zinc-400">Request ID: {requestId}</p> : null}
 
               {activeView === "dashboard" ? (
-                <AnalyticsDashboard issues={departmentIssues} workerMetrics={workerMetrics} escalationsCount={escalations.length} />
+                <AnalyticsDashboard issues={filteredDepartmentIssues} workerMetrics={filteredWorkerMetrics} escalationsCount={filteredEscalations.length} />
               ) : null}
 
               {activeView === "pending_issues" ? (
                 <PendingIssuesModeration
-                  pendingIssues={pendingIssues}
+                  pendingIssues={filteredPendingIssues}
                   loading={loading}
                   error={error}
                   busyId={busyId}
@@ -574,8 +607,8 @@ export function AuthorityHeadDashboard() {
 
               {activeView === "assigned_issues" ? (
                 <ResolvedIssuesEscalations
-                  issues={departmentIssues}
-                  escalations={escalations}
+                  issues={filteredDepartmentIssues}
+                  escalations={filteredEscalations}
                   closeLoadingId={closeLoadingId}
                   reassignLoadingId={reassignLoadingId}
                   escalateLoadingId={escalateLoadingId}
@@ -586,17 +619,15 @@ export function AuthorityHeadDashboard() {
                 />
               ) : null}
 
-              {activeView === "worker_analytics" ? <WorkerAnalytics workers={workerSummaries} /> : null}
+              {activeView === "worker_analytics" ? <WorkerAnalytics workers={filteredWorkerSummaries} /> : null}
 
               {activeView === "worker_management" ? (
                 <WorkerManagement
-                  pendingIssues={pendingIssues}
-                  workers={workerSummaries}
+                  workers={filteredWorkerSummaries}
                   createWorkerLoading={createWorkerLoading}
                   createWorkerError={createWorkerError}
                   createWorkerSuccess={createWorkerSuccess}
                   onCreateWorker={createWorker}
-                  onQuickAssignApprove={quickAssignApprove}
                   onUpdateWorker={updateWorker}
                   onDeleteWorker={deleteWorker}
                   onSetWorkerStatus={setWorkerStatus}
@@ -605,8 +636,8 @@ export function AuthorityHeadDashboard() {
 
               {activeView === "resolved_issues" ? (
                 <ResolvedIssuesEscalations
-                  issues={departmentIssues}
-                  escalations={escalations}
+                  issues={filteredDepartmentIssues}
+                  escalations={filteredEscalations}
                   closeLoadingId={closeLoadingId}
                   reassignLoadingId={reassignLoadingId}
                   escalateLoadingId={escalateLoadingId}
@@ -619,8 +650,8 @@ export function AuthorityHeadDashboard() {
 
               {activeView === "escalations" ? (
                 <ResolvedIssuesEscalations
-                  issues={departmentIssues}
-                  escalations={escalations}
+                  issues={filteredDepartmentIssues}
+                  escalations={filteredEscalations}
                   closeLoadingId={closeLoadingId}
                   reassignLoadingId={reassignLoadingId}
                   escalateLoadingId={escalateLoadingId}

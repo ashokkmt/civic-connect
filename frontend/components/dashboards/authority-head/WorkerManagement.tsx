@@ -3,42 +3,34 @@ import { Eye, Plus, Search } from "lucide-react";
 import { Card, CardBody } from "@/components/ui/Card";
 import { FormError } from "@/components/forms/FormError";
 import { WorkerMetricCards } from "@/components/dashboards/authority-head/WorkerMetricCards";
-import type { HeadIssue, HeadWorkerStatus, HeadWorkerSummary } from "@/components/dashboards/authority-head/types";
-import { formatIssueDisplayId } from "@/lib/issues/displayId";
+import type { HeadWorkerStatus, HeadWorkerSummary } from "@/components/dashboards/authority-head/types";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 
 type WorkerManagementProps = {
-  pendingIssues: HeadIssue[];
   workers: HeadWorkerSummary[];
   createWorkerLoading: boolean;
   createWorkerError: string | null;
   createWorkerSuccess: string | null;
   onCreateWorker: (email: string, password: string) => Promise<void>;
-  onQuickAssignApprove: (issueId: string, workerId: string, severity: string) => Promise<void>;
   onUpdateWorker: (workerId: string, payload: { name: string; email: string }) => Promise<void>;
   onDeleteWorker: (workerId: string) => Promise<void>;
   onSetWorkerStatus: (workerId: string, disabled: boolean) => Promise<void>;
 };
 
 export function WorkerManagement({
-  pendingIssues,
   workers,
   createWorkerLoading,
   createWorkerError,
   createWorkerSuccess,
   onCreateWorker,
-  onQuickAssignApprove,
   onUpdateWorker,
   onDeleteWorker,
   onSetWorkerStatus,
 }: WorkerManagementProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-
-  const [selectedIssueId, setSelectedIssueId] = useState("");
-  const [selectedWorkerId, setSelectedWorkerId] = useState("");
-  const [severity, setSeverity] = useState("MEDIUM");
-  const [assignError, setAssignError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 350);
   const [statusFilter, setStatusFilter] = useState<"ALL" | HeadWorkerStatus>("ALL");
   const [createOpen, setCreateOpen] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<HeadWorkerSummary | null>(null);
@@ -47,13 +39,8 @@ export function WorkerManagement({
   const [profileEmail, setProfileEmail] = useState("");
   const [profileMessage, setProfileMessage] = useState<string | null>(null);
 
-  const assignableIssues = useMemo(
-    () => pendingIssues.filter((issue) => issue.status === "PENDING_APPROVAL"),
-    [pendingIssues]
-  );
-
   const filteredWorkers = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = debouncedSearch.trim().toLowerCase();
     return workers.filter((worker) => {
       if (statusFilter !== "ALL" && worker.status !== statusFilter) {
         return false;
@@ -69,7 +56,7 @@ export function WorkerManagement({
         worker.workerId.toLowerCase().includes(query)
       );
     });
-  }, [search, statusFilter, workers]);
+  }, [debouncedSearch, statusFilter, workers]);
 
   const totalWorkers = workers.length;
   const issuesAssigned = workers.reduce((sum, worker) => sum + worker.assigned, 0);
@@ -83,18 +70,6 @@ export function WorkerManagement({
     setPassword("");
   };
 
-  const submitAssign = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setAssignError(null);
-
-    if (!selectedIssueId || !selectedWorkerId || !severity.trim()) {
-      setAssignError("Issue, worker ID, and severity are required.");
-      return;
-    }
-
-    await onQuickAssignApprove(selectedIssueId, selectedWorkerId, severity.trim());
-  };
-
   return (
     <section className="space-y-6">
       <WorkerMetricCards
@@ -104,80 +79,29 @@ export function WorkerManagement({
         issuesPending={issuesPending}
       />
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        <Card className="border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <CardBody>
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Create New Worker</h2>
-                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">Use the worker registration flow scoped to your department.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCreateOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                  Create Worker
-                </button>
+      <Card className="border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <CardBody>
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Create New Worker</h2>
+                <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">Use the worker registration flow scoped to your department.</p>
               </div>
-              <FormError message={createWorkerError} />
-              {createWorkerSuccess ? <p className="text-xs text-emerald-600 dark:text-emerald-300">{createWorkerSuccess}</p> : null}
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">Use create, edit, disable, enable, and delete controls to manage workers.</p>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card className="border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <CardBody>
-            <form className="space-y-3" onSubmit={submitAssign}>
-              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Assign Pending Issue</h2>
-              <label className="space-y-1 text-sm">
-                <span className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">Pending issue</span>
-                <select
-                  value={selectedIssueId}
-                  onChange={(event) => setSelectedIssueId(event.target.value)}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-zinc-800 dark:text-zinc-100"
-                >
-                  <option value="">Select issue</option>
-                  {assignableIssues.map((issue) => (
-                    <option key={issue.id} value={issue.id}>
-                      {formatIssueDisplayId(issue.id)} - {issue.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="grid gap-2 sm:grid-cols-2">
-                <label className="space-y-1 text-sm">
-                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">Worker ID</span>
-                  <input
-                    value={selectedWorkerId}
-                    onChange={(event) => setSelectedWorkerId(event.target.value)}
-                    placeholder="Worker Mongo ID"
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-zinc-800 dark:text-zinc-100"
-                  />
-                </label>
-                <label className="space-y-1 text-sm">
-                  <span className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">Severity</span>
-                  <input
-                    value={severity}
-                    onChange={(event) => setSeverity(event.target.value)}
-                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-zinc-800 dark:text-zinc-100"
-                  />
-                </label>
-              </div>
-              <FormError message={assignError} />
               <button
-                type="submit"
-                className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white transition hover:bg-blue-500"
+                type="button"
+                onClick={() => setCreateOpen(true)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-blue-500"
               >
-                Approve & Assign
+                <Plus className="h-3.5 w-3.5" />
+                Create Worker
               </button>
-            </form>
-          </CardBody>
-        </Card>
-      </div>
+            </div>
+            <FormError message={createWorkerError} />
+            {createWorkerSuccess ? <p className="text-xs text-emerald-600 dark:text-emerald-300">{createWorkerSuccess}</p> : null}
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Use create, edit, disable, enable, and delete controls to manage workers.</p>
+          </div>
+        </CardBody>
+      </Card>
 
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">

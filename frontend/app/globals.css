@@ -45,3 +45,38 @@ body {
 .animate-marquee {
   animation: marquee 28s linear infinite;
 }
+
+/* Keep Leaflet layers below sticky navigation and overlays across all pages. */
+.leaflet-container {
+  z-index: 1 !important;
+}
+
+.leaflet-tile-pane {
+  z-index: 2 !important;
+}
+
+.leaflet-overlay-pane {
+  z-index: 3 !important;
+}
+
+.leaflet-shadow-pane {
+  z-index: 4 !important;
+}
+
+.leaflet-marker-pane {
+  z-index: 5 !important;
+}
+
+.leaflet-tooltip-pane {
+  z-index: 6 !important;
+}
+
+.leaflet-popup-pane {
+  z-index: 7 !important;
+}
+
+.leaflet-control,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 8 !important;
+}

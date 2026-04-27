@@ -5,6 +5,7 @@ import { IssueCard } from "@/components/issues/IssueCard";
 import { EmptyState } from "@/components/feedback/EmptyState";
 import { LoadingSkeleton } from "@/components/feedback/LoadingSkeleton";
 import { LocationSetupCard } from "@/components/location/LocationSetupCard";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { useLocation } from "@/lib/location/context";
 import { isValidLocation } from "@/lib/location/validation";
 
@@ -37,6 +38,7 @@ export default function IssuesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebouncedValue(query, 350);
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [severityFilter, setSeverityFilter] = useState("all");
@@ -47,7 +49,7 @@ export default function IssuesPage() {
 
   const locationReady = useMemo(() => location && isValidLocation(location), [location]);
   const filteredIssues = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+    const normalizedQuery = debouncedQuery.trim().toLowerCase();
     if (!normalizedQuery) {
       return issues;
     }
@@ -56,7 +58,7 @@ export default function IssuesPage() {
       const haystack = `${issue.title} ${issue.description}`.toLowerCase();
       return haystack.includes(normalizedQuery);
     });
-  }, [issues, query]);
+  }, [issues, debouncedQuery]);
 
   useEffect(() => {
     if (!locationReady) {

@@ -6,6 +6,7 @@ import { AlertTriangle, Building2, LayoutDashboard, Menu, ShieldUser } from "luc
 import { useRouter } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { AdminView, ApiResponse, DepartmentRow, EscalationItem, HeadRow, OverviewStats } from "@/components/dashboards/admin/types";
 import { OverviewView } from "@/components/dashboards/admin/views/OverviewView";
 import { DepartmentManagementView } from "@/components/dashboards/admin/views/DepartmentManagementView";
@@ -48,6 +49,7 @@ export function AdminDashboard() {
   const [activeView, setActiveView] = useState<AdminView>("overview");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(search, 350);
   const [name, setName] = useState("Admin User");
   const [email, setEmail] = useState("admin@civicconnect.local");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -90,10 +92,10 @@ export function AdminDashboard() {
 
     try {
       const [escalationsRes, departmentsRes, metricsRes, headsRes] = await Promise.all([
-        fetch("/api/admin/escalations?limit=100", { method: "GET" }),
-        fetch("/api/admin/departments?limit=200", { method: "GET" }),
-        fetch("/api/admin/departments/metrics", { method: "GET" }),
-        fetch("/api/admin/authority-heads?limit=200", { method: "GET" }),
+        fetch("/api/admin/escalations?limit=100", { method: "GET", cache: "no-store" }),
+        fetch("/api/admin/departments?limit=200", { method: "GET", cache: "no-store" }),
+        fetch("/api/admin/departments/metrics", { method: "GET", cache: "no-store" }),
+        fetch("/api/admin/authority-heads?limit=200", { method: "GET", cache: "no-store" }),
       ]);
 
       const escalationsPayload = (await escalationsRes.json()) as ApiResponse<EscalationItem>;
@@ -412,7 +414,7 @@ export function AdminDashboard() {
 
   useEffect(() => {
     void loadAll();
-  }, [loadAll]);
+  }, [activeView, loadAll]);
 
   useEffect(() => {
     if (!actionToast) {
@@ -437,7 +439,7 @@ export function AdminDashboard() {
     }
   };
 
-  const searchQuery = search.trim().toLowerCase();
+  const searchQuery = debouncedSearch.trim().toLowerCase();
 
   const filteredDepartmentRows = useMemo(() => {
     if (!searchQuery) {
@@ -473,9 +475,9 @@ export function AdminDashboard() {
     }
 
     return escalations.filter((item) => {
-      const id = (item.id ?? item.issueId ?? "").toLowerCase();
-      const departmentId = (item.departmentId ?? "").toLowerCase();
-      const level = (item.escalationLevel ?? "").toLowerCase();
+      const id = String(item.id ?? item.issueId ?? "").toLowerCase();
+      const departmentId = String(item.departmentId ?? "").toLowerCase();
+      const level = String(item.escalationLevel ?? "").toLowerCase();
 
       return id.includes(searchQuery) || departmentId.includes(searchQuery) || level.includes(searchQuery);
     });
@@ -530,6 +532,9 @@ export function AdminDashboard() {
               searchPlaceholder="Search departments, heads, escalations..."
               searchValue={search}
               onSearchChange={setSearch}
+              onRefresh={refresh}
+              isRefreshing={loading}
+              refreshLabel="Refresh"
               profileName={name}
               profileSubtitle={email}
               onProfile={() => setActiveView("overview")}

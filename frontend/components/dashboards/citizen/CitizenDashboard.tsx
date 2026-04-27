@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocation } from "@/lib/location/context";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { isValidLocation } from "@/lib/location/validation";
 import { CitizenShell, type CitizenView } from "@/components/dashboards/citizen/CitizenShell";
 import { CommunityIssues } from "@/components/dashboards/citizen/CommunityIssues";
@@ -14,7 +15,6 @@ import type { CitizenIssue, IssuesResponse } from "@/components/dashboards/citiz
 
 const DEFAULT_RADIUS = 2000;
 const DEFAULT_LIMIT = 30;
-const COMMUNITY_POLL_INTERVAL_MS = 15000;
 
 const VIEW_META: Record<CitizenView, { title: string; subtitle: string }> = {
   dashboard_overview: {
@@ -54,6 +54,9 @@ export function CitizenDashboard() {
   const [myIssuesLoading, setMyIssuesLoading] = useState(false);
   const [myIssuesError, setMyIssuesError] = useState<string | null>(null);
   const [refreshNonce, setRefreshNonce] = useState(0);
+  const [search, setSearch] = useState("");
+
+  const debouncedSearch = useDebouncedValue(search, 350);
 
   const locationReady = useMemo(() => location && isValidLocation(location), [location]);
 
@@ -111,7 +114,21 @@ export function CitizenDashboard() {
     loadCitizenIssues();
   }, [lat, lng, locationReady, refreshNonce, activeView]);
 
-  const communityIssues = useMemo(() => citizenIssues, [citizenIssues]);
+  const searchQuery = debouncedSearch.trim().toLowerCase();
+
+  const filterIssuesBySearch = useCallback((items: CitizenIssue[]) => {
+    if (!searchQuery) {
+      return items;
+    }
+
+    return items.filter((issue) => {
+      const haystack = `${issue.id} ${issue.title} ${issue.description ?? ""} ${issue.status} ${issue.departmentId ?? ""}`.toLowerCase();
+      return haystack.includes(searchQuery);
+    });
+  }, [searchQuery]);
+
+  const communityIssues = useMemo(() => filterIssuesBySearch(citizenIssues), [citizenIssues, filterIssuesBySearch]);
+  const filteredMyIssues = useMemo(() => filterIssuesBySearch(myIssues), [myIssues, filterIssuesBySearch]);
 
   useEffect(() => {
     const loadMyIssues = async () => {
@@ -143,25 +160,26 @@ export function CitizenDashboard() {
     void loadMyIssues();
   }, [refreshNonce, activeView]);
 
-  useEffect(() => {
-    if (activeView !== "community_issues") {
-      return;
-    }
-
-    const timer = window.setInterval(() => {
-      setRefreshNonce((prev) => prev + 1);
-    }, COMMUNITY_POLL_INTERVAL_MS);
-
-    return () => window.clearInterval(timer);
-  }, [activeView]);
-
   const currentMeta = VIEW_META[activeView];
+  const isRefreshing = citizenLoading || myIssuesLoading;
+
+  const refreshDashboard = async () => {
+    setRefreshNonce((prev) => prev + 1);
+  };
 
   return (
-    <CitizenShell title={currentMeta.title} subtitle={currentMeta.subtitle} activeView={activeView}>
+    <CitizenShell
+      title={currentMeta.title}
+      subtitle={currentMeta.subtitle}
+      activeView={activeView}
+      searchValue={search}
+      onSearchChange={setSearch}
+      onRefresh={refreshDashboard}
+      isRefreshing={isRefreshing}
+    >
       {activeView === "dashboard_overview" ? (
         <DashboardOverview
-          issues={citizenIssues}
+          issues={communityIssues}
           loading={citizenLoading}
           error={citizenError}
           locationReady={Boolean(locationReady)}
@@ -172,7 +190,7 @@ export function CitizenDashboard() {
 
       {activeView === "my_issues" ? (
         <MyIssues
-          issues={myIssues}
+          issues={filteredMyIssues}
           loading={myIssuesLoading}
           error={myIssuesError}
           onIssueDeleted={() => setRefreshNonce((prev) => prev + 1)}

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Bell, ChevronDown, Search, UserRound } from "lucide-react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Bell, ChevronDown, RefreshCcw, Search, UserRound } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/ThemeToggle";
 
 type NavbarProps = {
@@ -19,9 +19,18 @@ type NavbarProps = {
   onSettings?: () => void;
   onLogout?: () => Promise<void> | void;
   isLoggingOut?: boolean;
+  onRefresh?: () => Promise<void> | void;
+  isRefreshing?: boolean;
+  refreshLabel?: string;
   onToggleMobileMenu?: () => void;
   mobileMenuButton?: React.ReactNode;
 };
+
+const subscribeHydration = () => () => {};
+
+function useHasHydrated() {
+  return useSyncExternalStore(subscribeHydration, () => true, () => false);
+}
 
 export function Navbar({
   title,
@@ -38,10 +47,14 @@ export function Navbar({
   onSettings,
   onLogout,
   isLoggingOut = false,
+  onRefresh,
+  isRefreshing = false,
+  refreshLabel = "Refresh",
   onToggleMobileMenu,
   mobileMenuButton,
 }: NavbarProps) {
   const [profileOpen, setProfileOpen] = useState(false);
+  const mounted = useHasHydrated();
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -65,7 +78,7 @@ export function Navbar({
   }, [profileOpen]);
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 md:px-8">
+    <header className="sticky top-0 z-[80] border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900 md:px-8">
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-4 md:gap-6">
           {mobileMenuButton ? (
@@ -86,7 +99,7 @@ export function Navbar({
         </div>
 
         <div className="ml-3 flex items-center gap-3 md:gap-4">
-          {locationLabel ? (
+          {mounted && locationLabel ? (
             <button
               type="button"
               onClick={onLocationClick}
@@ -94,6 +107,20 @@ export function Navbar({
               className="hidden whitespace-nowrap rounded-full border border-[var(--border)] bg-[var(--surface)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] shadow-sm transition hover:shadow md:inline-flex"
             >
               {locationLabel}
+            </button>
+          ) : null}
+
+          {onRefresh ? (
+            <button
+              type="button"
+              onClick={() => {
+                void onRefresh();
+              }}
+              disabled={isRefreshing}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 py-2 text-xs font-semibold text-[var(--foreground)] shadow-sm transition hover:shadow disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCcw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+              {isRefreshing ? "Refreshing..." : refreshLabel}
             </button>
           ) : null}
 

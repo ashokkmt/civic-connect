@@ -18,17 +18,32 @@ export type HeadIssue = {
   reporterName?: string;
   reporterEmail?: string;
   severity?: string;
+  supporterCount?: number;
+  flagsCount?: number;
   createdAt?: string;
   updatedAt?: string;
   imageUrls?: string[];
+  resolutionImageUrls?: string[];
+  resolutionNotes?: string;
   location?: {
     coordinates?: number[];
   };
+  statusHistory?: Array<{
+    title?: string;
+    description?: string;
+    status?: string;
+    timestamp?: string;
+    at?: string;
+    createdAt?: string;
+    notes?: string;
+  }>;
   authority?: {
     assignedToWorkerId?: string;
     startedAt?: string;
     deadlineAt?: string;
     resolvedAt?: string;
+    resolutionNotes?: string;
+    resolutionImageUrls?: string[];
   };
   escalationReason?: string;
 };

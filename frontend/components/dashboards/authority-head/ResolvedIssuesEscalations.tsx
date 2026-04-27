@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AlertTriangle, Timer } from "lucide-react";
 import { FormError } from "@/components/forms/FormError";
+import { IssueDetailView, type IssueDetailData } from "@/components/issues/detail/IssueDetailView";
 import { StatusBadge } from "@/components/issues/StatusBadge";
 import type { HeadIssue } from "@/components/dashboards/authority-head/types";
 import { formatIssueDisplayId } from "@/lib/issues/displayId";
@@ -28,6 +29,34 @@ function dateLabel(value?: string) {
   return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(d);
 }
 
+function toIssueDetailData(issue: HeadIssue): IssueDetailData {
+  const rawCoordinates = issue.location?.coordinates;
+  const hasCoordinates = Array.isArray(rawCoordinates) && rawCoordinates.length >= 2;
+  const coordinates = hasCoordinates ? ([Number(rawCoordinates[0]), Number(rawCoordinates[1])] as [number, number]) : undefined;
+
+  return {
+    id: issue.id,
+    title: issue.title,
+    description: issue.description,
+    status: issue.status,
+    supporterCount: issue.supporterCount,
+    flagsCount: issue.flagsCount,
+    createdAt: issue.createdAt,
+    updatedAt: issue.updatedAt,
+    departmentId: issue.departmentId,
+    imageUrls: issue.imageUrls,
+    resolutionImageUrls: issue.resolutionImageUrls ?? issue.authority?.resolutionImageUrls,
+    resolutionNotes: issue.resolutionNotes ?? issue.authority?.resolutionNotes,
+    location: coordinates ? { coordinates } : undefined,
+    reporterId: issue.reporterId,
+    reporterName: issue.reporterName,
+    reporterEmail: issue.reporterEmail,
+    statusHistory: issue.statusHistory,
+    // Disable citizen support/flag actions in authority context.
+    isReporter: true,
+  };
+}
+
 export function ResolvedIssuesEscalations({
   issues,
   escalations,
@@ -42,12 +71,39 @@ export function ResolvedIssuesEscalations({
   const [reassignWorkerByIssue, setReassignWorkerByIssue] = useState<Record<string, string>>({});
   const [escalationReasonByIssue, setEscalationReasonByIssue] = useState<Record<string, string>>({});
   const [localError, setLocalError] = useState<string | null>(null);
+  const [issueDetail, setIssueDetail] = useState<IssueDetailData | null>(null);
+  const [issueDetailLoading, setIssueDetailLoading] = useState(false);
+  const [issueDetailError, setIssueDetailError] = useState<string | null>(null);
 
   const resolvedLike = issues.filter(
     (issue) => issue.status === "RESOLVED" || issue.status === "AWAITING_HEAD_CLOSURE" || issue.status === "CLOSED"
   );
   const assignedLike = issues.filter((issue) => issue.status === "ASSIGNED" || issue.status === "IN_PROGRESS");
   const stalledEscalations = escalations.filter((issue) => issue.status !== "CLOSED").length;
+
+  const openIssueDetail = async (issue: HeadIssue) => {
+    setIssueDetailError(null);
+    setIssueDetail(toIssueDetailData(issue));
+    setIssueDetailLoading(true);
+
+    try {
+      const response = await fetch(`/api/head/issues/${issue.id}`, { method: "GET" });
+      const payload = (await response.json().catch(() => null)) as
+        | { success?: boolean; data?: { item?: HeadIssue }; error?: { message?: string } }
+        | null;
+
+      if (!response.ok || !payload?.success || !payload.data?.item) {
+        setIssueDetailError(payload?.error?.message ?? "Showing currently cached issue details.");
+        return;
+      }
+
+      setIssueDetail(toIssueDetailData(payload.data.item));
+    } catch {
+      setIssueDetailError("Showing currently cached issue details.");
+    } finally {
+      setIssueDetailLoading(false);
+    }
+  };
 
   return (
     <section className="space-y-6">
@@ -110,7 +166,13 @@ export function ResolvedIssuesEscalations({
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {resolvedLike.map((issue) => (
-                  <tr key={issue.id}>
+                  <tr
+                    key={issue.id}
+                    className="cursor-pointer transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/40"
+                    onClick={() => {
+                      void openIssueDetail(issue);
+                    }}
+                  >
                     <td className="px-6 py-4 text-xs font-semibold text-blue-600 dark:text-blue-300">{formatIssueDisplayId(issue.id)}</td>
                     <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{issue.authority?.assignedToWorkerId ?? "-"}</td>
                     <td className="px-6 py-4 text-sm text-zinc-700 dark:text-zinc-200">{dateLabel(issue.authority?.resolvedAt ?? issue.updatedAt)}</td>
@@ -120,7 +182,20 @@ export function ResolvedIssuesEscalations({
                     <td className="px-6 py-4">
                       <button
                         type="button"
-                        onClick={() => void onCloseIssue(issue.id)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void openIssueDetail(issue);
+                        }}
+                        className="mr-2 rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs font-semibold text-zinc-700 transition hover:bg-[var(--surface-muted)] dark:text-zinc-200"
+                      >
+                        View Issue
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void onCloseIssue(issue.id);
+                        }}
                         disabled={issue.status !== "AWAITING_HEAD_CLOSURE" || closeLoadingId === issue.id}
                         className="rounded-lg border border-[var(--border)] px-2.5 py-1.5 text-xs font-semibold text-zinc-700 transition hover:bg-[var(--surface-muted)] disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200"
                       >
@@ -264,6 +339,48 @@ export function ResolvedIssuesEscalations({
               </table>
             </div>
           </section>
+        </div>
+      ) : null}
+
+      {issueDetail ? (
+        <div className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-sm">
+          <button
+            type="button"
+            aria-label="Close issue detail"
+            className="absolute inset-0"
+            onClick={() => {
+              setIssueDetail(null);
+              setIssueDetailError(null);
+            }}
+          />
+          <div className="relative mx-auto flex h-full w-full max-w-7xl items-center justify-center p-4">
+            <section className="relative z-10 h-[92vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">Issue Detail</h3>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIssueDetail(null);
+                    setIssueDetailError(null);
+                  }}
+                  className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:bg-[var(--surface-muted)] dark:text-zinc-200"
+                >
+                  Close
+                </button>
+              </div>
+
+              {issueDetailError ? <FormError message={issueDetailError} /> : null}
+              {issueDetailLoading ? (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading latest issue details...</p>
+              ) : null}
+
+              <IssueDetailView
+                issue={issueDetail}
+                backHref="/dashboard/authority-head?view=resolved_issues"
+                backLabel="Resolved Issues"
+              />
+            </section>
+          </div>
         </div>
       ) : null}
     </section>

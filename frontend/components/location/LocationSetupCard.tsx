@@ -1,11 +1,11 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FormError } from "@/components/forms/FormError";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { useLocation } from "@/lib/location/context";
 import type { Location } from "@/lib/location/types";
-import { isValidLatitude, isValidLongitude } from "@/lib/location/validation";
 
 const LocationMapPicker = dynamic(
   () => import("@/components/location/LocationMapPicker").then((module) => module.LocationMapPicker),
@@ -27,17 +27,16 @@ type LocationSetupCardProps = {
 
 export function LocationSetupCard({
   title = "Set your location",
-  description = "Choose your location using geolocation, map click, or optional manual search.",
+  description = "Choose your location using geolocation, map click, or place search.",
   className,
 }: LocationSetupCardProps) {
   const { location, setLocation, clearLocation } = useLocation();
-  const [latInput, setLatInput] = useState(location ? String(location.lat) : "");
-  const [lngInput, setLngInput] = useState(location ? String(location.lng) : "");
   const [search, setSearch] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const debouncedSearch = useDebouncedValue(search, 350);
 
   const locationLabel = useMemo(() => {
     if (!location) {
@@ -53,8 +52,6 @@ export function LocationSetupCard({
       return;
     }
     setError(null);
-    setLatInput(next.lat.toFixed(6));
-    setLngInput(next.lng.toFixed(6));
   };
 
   const detectDeviceLocation = () => {
@@ -78,20 +75,8 @@ export function LocationSetupCard({
     );
   };
 
-  const submitManualLocation = () => {
-    const lat = Number(latInput);
-    const lng = Number(lngInput);
-
-    if (!isValidLatitude(lat) || !isValidLongitude(lng)) {
-      setError("Latitude must be between -90 and 90. Longitude must be between -180 and 180.");
-      return;
-    }
-
-    applyLocation({ lat, lng });
-  };
-
-  const runSearch = async () => {
-    if (!search.trim()) {
+  const runSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
       setSearchResults([]);
       return;
     }
@@ -100,8 +85,8 @@ export function LocationSetupCard({
     setError(null);
 
     try {
-      const query = encodeURIComponent(search.trim());
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=5`);
+      const encoded = encodeURIComponent(query.trim());
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=5`);
       if (!response.ok) {
         setError("Location search is currently unavailable.");
         setSearchResults([]);
@@ -116,7 +101,17 @@ export function LocationSetupCard({
     } finally {
       setLoadingSearch(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const query = debouncedSearch.trim();
+    if (query.length < 3) {
+      setSearchResults([]);
+      return;
+    }
+
+    void runSearch(query);
+  }, [debouncedSearch, runSearch]);
 
   return (
     <section className={`space-y-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 ${className ?? ""}`}>
@@ -141,8 +136,6 @@ export function LocationSetupCard({
           type="button"
           onClick={() => {
             clearLocation();
-            setLatInput("");
-            setLngInput("");
             setSearchResults([]);
             setError(null);
           }}
@@ -154,58 +147,22 @@ export function LocationSetupCard({
 
       <LocationMapPicker value={location} onPick={applyLocation} />
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Latitude</span>
-          <input
-            value={latInput}
-            onChange={(event) => setLatInput(event.target.value)}
-            placeholder="12.971599"
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-zinc-800 dark:text-zinc-100"
-          />
-        </label>
-        <label className="space-y-1 text-sm">
-          <span className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">Longitude</span>
-          <input
-            value={lngInput}
-            onChange={(event) => setLngInput(event.target.value)}
-            placeholder="77.594566"
-            className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 py-2 text-zinc-800 dark:text-zinc-100"
-          />
-        </label>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={submitManualLocation}
-          className="rounded-lg bg-[#1173d4] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0f66bd]"
-        >
-          Save coordinates
-        </button>
-      </div>
-
       <div className="space-y-2 rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-400">
           Optional place search
         </p>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="space-y-2">
           <input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search for an area or landmark"
             className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2 text-sm text-zinc-800 dark:text-zinc-100"
           />
-          <button
-            type="button"
-            onClick={() => {
-              void runSearch();
-            }}
-            disabled={loadingSearch}
-            className="rounded-lg border border-[var(--border)] px-4 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-[var(--surface)] disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-200"
-          >
-            {loadingSearch ? "Searching..." : "Search"}
-          </button>
+          {search.trim().length >= 3 && loadingSearch ? (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Searching locations...</p>
+          ) : (
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">Type at least 3 characters to search.</p>
+          )}
         </div>
         {searchResults.length > 0 ? (
           <ul className="space-y-2">

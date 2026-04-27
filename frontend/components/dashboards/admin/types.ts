@@ -30,7 +30,6 @@ export type EscalationItem = {
   notifiedHeadAt?: string;
   notifiedHeadBy?: string;
   status?: string;
-  createdAt?: string;
   updatedAt?: string;
   authority?: {
     assignedToWorkerId?: string;

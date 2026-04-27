@@ -20,6 +20,10 @@ type CitizenShellProps = {
   title: string;
   subtitle: string;
   activeView: CitizenView;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  onRefresh?: () => Promise<void> | void;
+  isRefreshing?: boolean;
   children: React.ReactNode;
 };
 
@@ -37,13 +41,21 @@ type MeResponse = {
   };
 };
 
-export function CitizenShell({ title, subtitle, activeView, children }: CitizenShellProps) {
+export function CitizenShell({
+  title,
+  subtitle,
+  activeView,
+  searchValue = "",
+  onSearchChange,
+  onRefresh,
+  isRefreshing = false,
+  children,
+}: CitizenShellProps) {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [name, setName] = useState("Citizen User");
   const [email, setEmail] = useState("resident@civicconnect.local");
-  const [search, setSearch] = useState("");
   const [locationModalOpen, setLocationModalOpen] = useState(false);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [lastSyncedLocation, setLastSyncedLocation] = useState<string | null>(null);
@@ -189,11 +201,14 @@ export function CitizenShell({ title, subtitle, activeView, children }: CitizenS
               title={title}
               subtitle={subtitle}
               searchPlaceholder="Search for reports or addresses..."
-              searchValue={search}
-              onSearchChange={setSearch}
+              searchValue={searchValue}
+              onSearchChange={onSearchChange}
               locationLabel={locationLabel}
               locationTooltip={locationTooltip}
               onLocationClick={() => setLocationModalOpen(true)}
+              onRefresh={onRefresh}
+              isRefreshing={isRefreshing}
+              refreshLabel="Refresh"
               profileName={name}
               profileSubtitle={email}
               onProfile={() => handleSelect("profile_settings")}
