@@ -420,8 +420,3 @@ make dev
 - Update documentation when adding features
 - Keep backend and frontend in sync
 
----
-
-## License
-
-TBD
